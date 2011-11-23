@@ -32,35 +32,27 @@ bool parse(int ac, char* av[], po::variables_map& vm){
 	desc.add_options()
     		("help,h", "produce help message")
     		("version,v", "print version information")
-		("levels", po::value<string>(), "CP2K output file containing energy levels")
-		("cubelist", po::value<string>(), "file with list of wavefunction cubes you wish to extrapolate")
-		("hartree", po::value<string>(), "cube file of hartree potential from CP2K")
-		("start", po::value<double>(), "distance between extrapolation plane and outermost atom in a.u.")
-		("width", po::value<double>(), "length of extrapolation in a.u.")
+		("optimization,O", po::value<int>(), "set optimization level")
+		("input-file", po::value< vector<string> >(),
+		 "input file")
 	;
 	
-	// Register positional options
+	// Declare positional options
 	po::positional_options_description p;
-	p	.add("levels", 1)
-		.add("cubelist", 1)
-		.add("hartree", 1)
-		.add("start", 1)
-		.add("width", 1);
+	p.add("input-file", -1);
 
 	// Parse
 	po::store(po::command_line_parser(ac,av).
 			options(desc).positional(p).run(), vm);
 	po::notify(vm);    
 
-	if (		vm.count("help") ||
-			!vm.count("levels") ||
-			!vm.count("hartree") ||
-			!vm.count("start") ||
-			!vm.count("width")	) {
-		cout << "Usage: wfextr.x [options]\n";
+	if (vm.count("help")) {
+		cout << "Usage: <input-file> [options]\n";
 		cout << desc << "\n";
 	} else if (vm.count("version")) {
 		cout << "V1.0, Nov 22nd 2011\n";
+	} else if (!vm.count("input-file")) {
+		cout << "Please specify input file\n";
 	} else {
 		return true;
 	}
