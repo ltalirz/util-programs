@@ -1,4 +1,4 @@
-include make-ipazia-login.sys
+include make-ddl03910.sys
 
 default: p
 .PHONY: clean
@@ -6,15 +6,15 @@ clean:
 	rm -rf *.o
 
 %.o: %.cpp %.h 
-	$(CC) -c $(CFLAGS) $<
+	$(CC) -o $@ -c $(CFLAGS) $<
 %.o: %.cpp
-	$(CC) -c $(CFLAGS) $<
+	$(CC) -o $@ -c $(CFLAGS) $<
 
-p: p.o
-	$(LD) -o $@.x $^ $(LFLAGS)
+p.x: p.o include/classes.o
+	$(LD) -o $@ $^ $(LFLAGS)
 
-test-parse: test-parse.o
-	$(LD) -o $@.x $^ $(LFLAGS)
+test-parse.x: test-parse.o
+	$(LD) -o $@ $^ $(LFLAGS)
 
-wfextr: wfextr.o
-	$(LD) -o $@.x $^ $(LFLAGS)
+wfextr.x: wfextr.o
+	$(LD) -o $@ $^ $(LFLAGS)

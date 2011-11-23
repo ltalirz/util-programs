@@ -4,27 +4,42 @@
 #ifndef CLASSES_H
 #define CLASSES_H
 
-typedef uint unsigned int;
-typedef sint int;
-typedef real double;
-typedef text std::string;
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <iostream>
 
-struct EnergyLevels {
-	std::vector<real> occupied;
-	std::vector<real> unOccupied;
-	real fermi;
-}
+namespace atomistic {
 
-struct Atom {
-	real x,y,z;
-	text symbol;
-}
-struct FormatXyz {
-	std::vector<Atom> atoms;
-}
+	typedef unsigned int uint;
+	typedef int sint;
+	typedef double real;
+	typedef std::string text;
 
-struct Cell {
-	std::vector<real>(3) a,b,c;
+	
+
+	struct EnergyLevels {
+		static const uint DEFAULT_N = 100;
+		std::vector<real> levels;
+		real fermi;
+		
+		void sort(){ std::sort(levels.begin(), levels.end()); }
+		void readFromCp2k(std::string filename);
+	};
+
+	struct Atom {
+		real x,y,z;
+		text symbol;
+	};
+
+	struct FormatXyz {
+		std::vector<Atom> atoms;
+	};
+
+	struct Cell {
+		std::vector<real> a,b,c;
+	};
+
 }
 
 #endif
