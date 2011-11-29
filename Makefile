@@ -1,20 +1,31 @@
 include make-ddl03910.sys
 
+CFLAGS += -I ./include
+LFLAGS += -L ./lib
+
 default: p
 .PHONY: clean
 clean:
 	rm -rf *.o
 
 %.o: %.cpp %.h 
-	$(CC) -o $@ -c $(CFLAGS) $<
+	$(CC) -c $< -o $@ $(CFLAGS)
 %.o: %.cpp
-	$(CC) -o $@ -c $(CFLAGS) $<
+	$(CC) -c $< -o $@ $(CFLAGS)
 
-p.x: p.o include/classes.o
+p: p.o lib/atomistic.o lib/io.o
 	$(LD) -o $@ $^ $(LFLAGS)
 
-test-parse.x: test-parse.o
+test-regex: test-regex.o
 	$(LD) -o $@ $^ $(LFLAGS)
 
-wfextr.x: wfextr.o
+wfextr: wfextr.o
+	$(LD) -o $@ $^ $(LFLAGS)
+
+test-read: test-read.o
+	$(LD) -o $@ $^ $(LFLAGS)
+
+test-qi-stack: test-qi-stack.o
+	$(LD) -o $@ $^ $(LFLAGS)
+test-qi: test-qi.o
 	$(LD) -o $@ $^ $(LFLAGS)
