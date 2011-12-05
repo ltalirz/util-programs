@@ -1,5 +1,4 @@
-#include <fstream>
-
+#include <boost/format.hpp>
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
@@ -9,7 +8,7 @@
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/home/phoenix/bind/bind_function.hpp>
 
-#include <eigen3/Eigen/Dense>
+#include <blitz/array.h>
 
 #include "atomistic.h"
 #include "io.h"
@@ -30,21 +29,21 @@ void EnergyLevels::sort() {
     std::sort(this->levels.begin(), this->levels.end());
 }
 
-Uint EnergyLevels::count() {
+Uint EnergyLevels::count() const {
     return this->levels.size();
 }
 
-void EnergyLevels::print() {
+void EnergyLevels::print() const {
     std::cout << "Fermi energy: " << this->fermi << std::endl;
-    for(std::vector<Real>::iterator it = this->levels.begin(); it != this->levels.end(); it++) {
+    for(std::vector<Real>::const_iterator it = this->levels.begin(); it != this->levels.end(); it++) {
         std::cout << *it << std::endl;
     }
 }
 
 
 
-void Spectrum::print() {
-    for(std::vector<EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {
+void Spectrum::print() const {
+    for(std::vector<EnergyLevels>::const_iterator it = this->spins.begin(); it != this->spins.end(); it++) {
         it->print();
     }
 }
@@ -127,10 +126,6 @@ void Cube::readCubeFile(String filename) {
     using boost::phoenix::ref;
     using boost::phoenix::bind;
 
-    using Eigen::MatrixXd;
-    using Eigen::Vector3d;
-    using Eigen::Map;
-
     io::Binary content;
     io::readBinary(filename, content);
     typedef io::Binary::const_iterator binIt;
@@ -172,17 +167,19 @@ void Cube::readCubeFile(String filename) {
     Uint nat;
     rule<binIt, std::vector<Real>(), space_type> vectorRule =
         repeat(3)[double_];
+    rule<binIt, Direction(), space_type> directionRule =
+        uint_[bind(&Direction::incrementCount, _val) = _1] >>
+        vectorRule[bind(&Direction::incrementVector, _val) = _1];
     phrase_parse(
         it,
         end,
         (uint_)[ref(nat)=_1]  >> vectorRule[ref(this->grid.originVector)=_1] >>
         repeat(3)[
-            (uint_)[push_back(ref(this->grid.incrementCounts), _1)]  >>
-            vectorRule[push_back(ref(this->grid.incrementVectors), _1)]
+            directionRule[push_back(ref(this->grid.directions), _1)]
         ],
         space
     );
-    
+
     // atoms
     rule<binIt, Atom(), space_type> atomRule =
         uint_[bind(&Atom::number, _val) = _1] >>
@@ -197,35 +194,134 @@ void Cube::readCubeFile(String filename) {
         space
     );
 
+    // cube data
+    Uint npoints = this->grid.countPoints();
+    this->grid.data.reserve(npoints);
+    bool finddata = phrase_parse(
+        it,
+        end,
+        repeat(npoints)[double_],
+        space,
+        this->grid.data
+    );
+
+
     // Can map it as an Eigen::Vector3d if one likes
     //Map<Vector3d> originVector (&origin[0]);
 
-    this->print();
-
-    // Todo:
-    // 1. Write parser for cube files using qi
-    // 2. Convert cube file to Eigen Matrix (or some Eigen object that can be used
-    // with phrase_parse)
-
 }
 
 
-void Grid::print() {
-    std::cout << this->originVector[0] << std::endl;
+void Grid::printHeader() const {
+    using boost::format;
+    format formatter("%5i %12.6f %12.6f %12.6f \n");
+
+    std::vector<Direction>::const_iterator it;
+    for(it = directions.begin(); it!= directions.end(); ++it) {
+        std::cout << formatter % it->incrementCount % it->incrementVector[0] % it->incrementVector[1] % it->incrementVector[2];
+    }
+
 }
 
-void Atom::print() {
-    std::cout << this->number << coordinates[0] << coordinates[1] << std::endl;
+void Grid::printData() const {
+    using boost::format;
+    format formatter("%13.5e");
+
+    std::vector<Real>::const_iterator it = data.begin();
+    // Fastest direction is z, stored in directions[2]
+    Uint i = 1, nZ = directions[2].incrementCount;
+    while(it!= data.end()) {
+        std::cout << formatter % *it;
+	if(i % 6 == 0) std::cout << std::endl; 
+	else if(i % nZ == 0){
+		std::cout << std::endl;
+		i=0;
+	}
+	++it;
+	++i;
+    }
+
 }
 
-void Cube::print() {
-    // Todo: Learn boost format and print out cube file as it was
-    std::cout << String(this->title.begin(), this->title.end()) << std::endl;
-    std::cout << String(this->description.begin(), this->description.end()) << std::endl;
-
-    this->grid.print();
-    for(std::vector<Atom>::iterator it = this->atoms.begin(); it != this->atoms.end(); it++) {
-        it->print();
+void Grid::squareValues(){
+    std::vector<Real>::iterator it = data.begin(), end = data.end();
+    while(it != end){
+        (*it) *= (*it);
+	++it;
     }
 }
+
+
+void Grid::sumXY(std::vector<Real>& reduced) const {
+    /** The Blitz++ way
+    using namespace blitz;
+    namespace t = tensor;
+    
+    Array<Real,3> dataArray(&data[0], shape(directions[0].incrementCount, directions[1].incrementCount, directions[2].incrementCount));
+    // reduce second dimension
+    Array<Real,2> reducedY(sum(dataArray(t::i,t::k,t::j), t::k));
+    //std::cout << reduceY;
+    Array<Real,1> reducedXY(sum(reducedY(t::j,t::i), t::j));
+    std::cout << reduceXY;
+    
+     **/
+
+    reduced = std::vector<Real> (directions[2].incrementCount, 0.0);
+    std::vector<Real>::const_iterator itData=data.begin(), endData=data.end();
+    std::vector<Real>::iterator itReduced=reduced.begin(), endReduced=reduced.end();
+    // z is the fast index of the cube file, so we just need to sum
+    // all of the z-compartments together
+    while(itData != endData){
+	if(itReduced == endReduced){
+            itReduced = reduced.begin();
+	}
+        *itReduced += *itData;
+	++itData;
+	++itReduced;
+    }
+	    
+    
+    
 }
+
+Uint Grid::countPoints() const {
+    std::vector<Direction>::const_iterator it;
+    Uint points = 1;
+    for(it = directions.begin(); it!= directions.end(); ++it) {
+        points *= it->incrementCount;
+    }
+    return points;
+}
+
+
+void Atom::print() const {
+    using boost::format;
+    format formatter("%5i %12.6f %12.6f %12.6f %12.6f \n");
+    std::cout << formatter % number % charge % coordinates[0] % coordinates[1] % coordinates[2];
+}
+
+
+
+void Cube::print() const {
+    std::cout << String(title.begin(), title.end()) << std::endl;
+    std::cout << String(description.begin(), description.end()) << std::endl;
+
+    using boost::format;
+    format formatter("%5i %12.6f %12.6f %12.6f \n");
+    std::cout << formatter % countAtoms() % grid.originVector[0] % grid.originVector[1] % grid.originVector[2];
+    grid.printHeader();
+    for(std::vector<Atom>::const_iterator it = atoms.begin(); it != atoms.end(); ++it) {
+        it->print();
+    }
+    // Sending the whole data over std::out is not very efficient
+    //grid.printData();
+}
+
+
+Uint Cube::countAtoms() const {
+    return atoms.size();
+}
+
+
+}
+

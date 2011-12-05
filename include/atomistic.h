@@ -16,8 +16,6 @@ typedef int Int;
 typedef double Real;
 typedef std::string String;
 
-
-
 struct EnergyLevels {
     static const Uint DEFAULT_N = 100;
     std::vector<Real> levels;
@@ -25,17 +23,16 @@ struct EnergyLevels {
 
     EnergyLevels(std::vector<Real> levels, Real fermi);
     void sort();
-    Uint count();
-    void print();
+    Uint count() const;
+    void print() const;
 };
-
 
 struct Spectrum {
     static const Uint DEFAULT_N_SPINS = 2;
     std::vector<EnergyLevels> spins;
 
     void readFromCp2k(String filename);
-    void print();
+    void print() const;
 };
 
 struct Atom {
@@ -46,21 +43,29 @@ struct Atom {
 
     Atom(std::vector<Real> coordinates, Uint number, Real charge): coordinates(coordinates), number(number), charge(charge) {};
     Atom(std::vector<Real> coordinates): coordinates(coordinates){};
-    void  print();
     Atom(){ }
+    void  print() const;
 };
-
 
 struct FormatXyz {
     std::vector<Atom> atoms;
 };
 
-struct Grid {
-    std::vector< std::vector<Real> > incrementVectors;
-    std::vector<Real> originVector;
-    std::vector<Uint> incrementCounts;
+struct Direction {
+    std::vector<Real> incrementVector;
+    Uint incrementCount;
+};
 
-    void print();
+struct Grid {
+    std::vector<Direction> directions;
+    std::vector<Real> originVector;
+    std::vector<Real> data;
+
+    void printHeader() const;
+    void printData() const;
+    Uint countPoints() const;
+    void sumXY(std::vector<Real>& reduced) const;
+    void squareValues();
 };
 
 struct Cube {
@@ -70,7 +75,8 @@ struct Cube {
 	std::vector<char> description;
 
 	void readCubeFile(String filename);
-	void print();
+	void print() const;
+	Uint countAtoms() const;
 
 };
 
