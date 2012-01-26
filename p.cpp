@@ -1,6 +1,4 @@
 #include <iostream>
-#include <iterator>
-//#include <boost/program_options.hpp>
 
 #include "atomistic.h"
 
@@ -13,15 +11,15 @@ void readFromCp2k(){
 }
 
 void readCubeFile(){
-	at::Cube cube = at::Cube();
+	at::WfnCube cube = at::WfnCube();
 	cube.readCubeFile("2MOL-WFN_00122_1-1_23.cube");
-	cube.grid.squareValues();
-	std::vector<double> line;
-	cube.grid.sumXY(line);
-	std::vector<double>::iterator it;
-	for(it = line.begin();it!=line.end();++it){
-	    std::cout << *it << std::endl;
-	}
+	
+	std::cout << cube.grid.getData(0,0,0) << std::endl;
+	std::cout << cube.grid.getData(0,1,0) << std::endl;
+
+	std::cout << cube.grid.getNearestData(0,0,0) << std::endl;
+
+
 }
 
 int main(int ac, char* av[]){

@@ -1,48 +1,127 @@
 #include "la.h"
+#include "types.h"
 
 #include <iostream>
 #include <iterator>
 #include <algorithm>
 #include <vector>
 #include <boost/format.hpp>
+
 #include <eigen3/Eigen/Dense>
 
+
 namespace la {
+
+using namespace types;
 
 Int round(Real r) {
     return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
 }
 
-
-void Grid::printHeader() const {
-    using boost::format;
-    format formatter("%5i %12.6f %12.6f %12.6f \n");
-
-    std::vector<Direction>::const_iterator it;
-    for(it = directions.begin(); it!= directions.end(); ++it) {
-        std::cout << formatter % it->incrementCount % it->incrementVector[0] % it->incrementVector[1] % it->incrementVector[2];
+Cell::Cell(const std::vector<Direction> &directions){
+    for(std::vector<Direction>::const_iterator dIt = directions.begin();
+            dIt != directions.end(); ++dIt){
+        std::vector<types::Real> cellVector;
+        for(std::vector<types::Real>::const_iterator vIt = dIt->incrementVector.begin();
+                vIt != dIt->incrementVector.end(); ++vIt){
+            cellVector.push_back(*vIt * dIt->incrementCount);
+        }
+        vectors.push_back(cellVector);
     }
-
 }
 
-void Grid::printData() const {
-    using boost::format;
-    format formatter("%13.5e");
+Cell Grid::cell() const {
+    return Cell(directions);
+}
+/**
+ * 3d wrapper for general resize function
+ */
+void Grid::resize(types::Uint nX, types::Uint nY, types::Uint nZ){
+    std::vector<Uint> tempCounts;
+    tempCounts.push_back(nX);
+    tempCounts.push_back(nY);
+    tempCounts.push_back(nZ);
+    resize(tempCounts);
+}
 
-    std::vector<Real>::const_iterator it = data.begin();
-    // Fastest direction is z, stored in directions[2]
-    Uint i = 1, nZ = directions[2].incrementCount;
-    while(it!= data.end()) {
-        std::cout << formatter % *it;
-        if(i % 6 == 0) std::cout << std::endl;
-        else if(i % nZ == 0) {
-            std::cout << std::endl;
-            i=0;
-        }
-        ++it;
-        ++i;
+/** Can cut down as well as enlarge (fill with zeros)
+ *
+ * Nd implementation sadly needs recursion (depth = number of dimensions).
+ * I should test the speed and maybe think about a specialization for 3d.
+ * Maybe one can do the recursion during compile time via templates.
+ */
+void Grid::resize(const std::vector<Uint>& incrementCounts){
+    Uint dimension = incrementCounts.size();
+    checkDimension(dimension);
+  
+    // Get size for preallocation
+    Uint size = 1;
+    std::vector<Uint>::const_iterator incIt = incrementCounts.begin(),
+        incEnd = incrementCounts.end();
+    while(incIt != incEnd){
+        size *= *incIt;
+	    incIt++;
     }
+    std::vector<Real> newData;
+    newData.resize(size);
+   
+    // Starting with direction 0, the slowest direction
+    std::vector<Real>::const_iterator dataIt = data.begin();
+    std::vector<Real>::iterator newIt = newData.begin();
+    this->copyRecursive(0, dataIt, newIt, incrementCounts);
+   
+   // Update data and incrementCounts
+   this->data = newData;
+   std::vector<Direction>::iterator dirIt = directions.begin();
+   for(incIt = incrementCounts.begin(); incIt != incEnd; ++incIt, ++dirIt){
+      dirIt->incrementCount = *incIt;
+   }
+}
 
+/** Used by resize (recursively).
+ * 
+ * The *last* dimension is the fast one (as in 3d cube file format)
+ */
+void Grid::copyRecursive( 
+        Uint directionIndex,
+        std::vector<Real>::const_iterator &oldIt, 
+        std::vector<Real>::iterator &newIt,  
+        const std::vector<Uint> &newCounts){
+
+    Uint dimension = newCounts.size();
+
+    // If directionIndex is out of bounds, we are finished
+    if( directionIndex >= dimension) return;
+
+    Uint oldCount = directions[directionIndex].incrementCount,
+         newCount = newCounts[directionIndex];
+    Uint copyCount = std::min(oldCount, newCount),
+         iterCount = std::max(oldCount, newCount);
+    
+    // If we are at the last dimension, we copy and move the iterators
+    if( directionIndex == dimension - 1){
+        copy(oldIt, oldIt + copyCount, newIt);
+        oldIt += oldCount;
+        newIt += newCount; 
+    }
+    // If we are not at the last dimension, we call recursively  
+    else{
+
+        for(Uint i = 0; i < iterCount; ++i){
+            // If we need to copy...
+            if(i < copyCount){
+                this->copyRecursive(directionIndex + 1, oldIt, newIt, newCounts);
+            }
+            // Else countNew or countOld is > countCopy and we just need to move iterators.
+            else{
+                if(newCount > i)
+                    newIt += newCount;
+                else
+                    oldIt += oldCount;
+            }
+        }
+
+    }
 }
 
 void Grid::squareValues() {
@@ -78,21 +157,38 @@ bool Grid::checkRange(const std::vector<Uint>& indices) const {
     return true;
 }
 
+Real Grid::getNearestDataPoint(std::vector<Real>& coordinates) const {
+	std::vector<Uint> indices;
+this->getNearestIndices(coordinates, indices);
+    return this->getDataPoint(indices);
+}
 
-// 3d wrapper for nd getData
-Real Grid::getData(Uint x, Uint y, Uint z) const {
+
+// 3d wrapper for nd getNearestDataPoint
+Real Grid::getNearestDataPoint(Real x, Real y, Real z) const {
+    std::vector<Real> coordinates;
+    coordinates.push_back(x);
+    coordinates.push_back(y);
+    coordinates.push_back(z);
+
+    return this->getNearestDataPoint(coordinates);
+}
+
+
+// 3d wrapper for nd getDataPoint
+Real Grid::getDataPoint(Uint x, Uint y, Uint z) const {
     std::vector<Uint> indices;
     indices.push_back(x);
     indices.push_back(y);
     indices.push_back(z);
 
-    return this->getData(indices);
+    return this->getDataPoint(indices);
 }
 
 
 // This works for n dimensions,
 // assuming that they are ordered by increasing fastness
-Real Grid::getData(const std::vector<Uint>& indices) const {
+Real Grid::getDataPoint(const std::vector<Uint>& indices) const {
     checkRange(indices);
     
     // Note: end() points *after* the last item
@@ -113,18 +209,8 @@ Real Grid::getData(const std::vector<Uint>& indices) const {
     return *dataIt;
 }
 
-// 3d wrapper for nd getData
-Real Grid::getNearestData(Real x, Real y, Real z) const {
-    std::vector<Real> indices;
-    indices.push_back(x);
-    indices.push_back(y);
-    indices.push_back(z);
-
-    return this->getNearestData(indices);
-}
-
 // This works for nd grids
-Real Grid::getNearestData(std::vector<Real>& cartesianCoordinates) const {
+bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vector<Uint>& indices) const {
 
     std::vector<Real> basisVectors;
     std::back_insert_iterator< std::vector<Real> > it(basisVectors);
@@ -145,13 +231,12 @@ Real Grid::getNearestData(std::vector<Real>& cartesianCoordinates) const {
     VectorXd gridEig = basisMatrix.inverse() * cartesianEig;
 
     std::vector<Real> gridStl(gridEig.data(), gridEig.data() + gridEig.size());
-    std::vector<Uint> gridStlRounded;
-    
+    indices.clear(); 
     for(std::vector<Real>::iterator it = gridStl.begin(); it != gridStl.end(); ++it) {
-        gridStlRounded.push_back(round(*it));
+        indices.push_back(round(*it));
     }
 
-    return this->getData(gridStlRounded);
+    return true;
 }
 
 void Grid::sumXY(std::vector<Real>& reduced) const {
@@ -183,7 +268,6 @@ void Grid::sumXY(std::vector<Real>& reduced) const {
     }
 
 
-
 }
 
 Uint Grid::countPoints() const {
@@ -194,6 +278,8 @@ Uint Grid::countPoints() const {
     }
     return points;
 }
+
+
 
 
 }

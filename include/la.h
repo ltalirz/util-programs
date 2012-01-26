@@ -9,29 +9,49 @@
 
 namespace la {
 
-using namespace types;
-
 struct Direction {
-    std::vector<Real> incrementVector;
-    Uint incrementCount;
+    std::vector<types::Real> incrementVector;
+    types::Uint incrementCount;
 };
+
+class Cell {
+    public:
+        Cell() {};
+        Cell(const std::vector<Direction> &directions);
+        std::vector< types::Real > vector(types::Uint n) { return vectors[n]; }
+    private:    
+        std::vector< std::vector<types::Real> > vectors;
+};
+
 
 struct Grid {
     std::vector<Direction> directions;
-    std::vector<Real> originVector;
-    std::vector<Real> data;
+    std::vector<types::Real> originVector;
+    std::vector<types::Real> data;
 
-    void printHeader() const;
-    void printData() const;
-    Uint countPoints() const;
-    void sumXY(std::vector<Real>& reduced) const;
+    std::vector<Direction> getDirections() const { return directions;}
+    std::vector<types::Real> getOriginVector() const { return originVector; }
+    const std::vector<types::Real> & getData() const { return data; }
+    Cell cell() const;
+
+    types::Uint countPoints() const;
+    void sumXY(std::vector<types::Real>& reduced) const;
     void squareValues();
-    Real getNearestData(std::vector<Real>& coordinates) const;
-    Real getNearestData(Real x, Real y, Real z) const;
-    Real getData(Uint x, Uint y, Uint z) const;
-    Real getData(const std::vector<Uint>& indices) const; 
-    bool checkRange(const std::vector<Uint>& indices) const;
-    bool checkDimension(Uint size) const;
+    bool getNearestIndices(std::vector<types::Real>& coordinates, std::vector<types::Uint>& indices) const;
+    types::Real getNearestDataPoint(std::vector<types::Real>& coordinates) const;
+    types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
+    types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
+    types::Real getDataPoint(const std::vector<types::Uint>& indices) const; 
+    bool checkRange(const std::vector<types::Uint>& indices) const;
+    bool checkDimension(types::Uint size) const;
+    void resize(const std::vector<types::Uint>& incrementCounts);
+    void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
+    private:
+    void copyRecursive( 
+        types::Uint directionIndex,
+        std::vector<types::Real>::const_iterator &oldIt, 
+        std::vector<types::Real>::iterator &newIt,  
+        const std::vector<types::Uint> &newCounts);
 };
 
 }

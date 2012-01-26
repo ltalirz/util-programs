@@ -4,80 +4,95 @@
 #ifndef CLASSES_H
 #define CLASSES_H
 
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <iostream>
+#include "types.h"
+#include "la.h"
 
 namespace atomistic {
 
-typedef unsigned int Uint;
-typedef int Int;
-typedef double Real;
-typedef std::string String;
-
+/**
+ * An array of energy levels.
+ */
 struct EnergyLevels {
-    static const Uint DEFAULT_N = 100;
-    std::vector<Real> levels;
-    Real fermi;
+    static const types::Uint DEFAULT_N = 100;
+    std::vector<types::Real> levels;
+    types::Real fermi;
 
-    EnergyLevels(std::vector<Real> levels, Real fermi);
+    EnergyLevels(std::vector<types::Real> levels, types::Real fermi);
     void sort();
-    Uint count() const;
+    types::Uint count() const;
     void print() const;
+    void shift(types::Real deltaE);
+    types::Real getLevel(types::Uint i) const;
 };
 
+/**
+ * A whole spectrum, containing several sets of energy levels
+ * (spins, kpoints)
+ */
 struct Spectrum {
-    static const Uint DEFAULT_N_SPINS = 2;
+    static const types::Uint DEFAULT_N_SPINS = 2;
     std::vector<EnergyLevels> spins;
 
-    void readFromCp2k(String filename);
+    void readFromCp2k(types::String filename);
     void print() const;
+    void shift(types::Real deltaE);
 };
 
+/** 
+ * Representation of an atomic core in an atomistic simulation.
+ */
 struct Atom {
-    std::vector<Real> coordinates;
-    Uint number;
-    Real charge;
-    String symbol;
+    std::vector<types::Real> coordinates;
+    types::Uint number;
+    types::Real charge;
+    types::String symbol;
 
-    Atom(std::vector<Real> coordinates, Uint number, Real charge): coordinates(coordinates), number(number), charge(charge) {};
-    Atom(std::vector<Real> coordinates): coordinates(coordinates){};
+    Atom(std::vector<types::Real> coordinates, types::Uint number, types::Real charge): coordinates(coordinates), number(number), charge(charge) {};
+    Atom(std::vector<types::Real> coordinates): coordinates(coordinates){};
     Atom(){ }
-    void  print() const;
+    const std::vector<types::Real> &getCoordinates () const { return coordinates;}
+    types::Uint getNumber() const { return number; }
+    types::Real getCharge() const { return charge; }
+    types::String getSymbol() const { return symbol; }
 };
 
+/**
+ * Stores .xyz file
+ */
 struct FormatXyz {
     std::vector<Atom> atoms;
 };
 
-struct Direction {
-    std::vector<Real> incrementVector;
-    Uint incrementCount;
-};
-
-struct Grid {
-    std::vector<Direction> directions;
-    std::vector<Real> originVector;
-    std::vector<Real> data;
-
-    void printHeader() const;
-    void printData() const;
-    Uint countPoints() const;
-    void sumXY(std::vector<Real>& reduced) const;
-    void squareValues();
-};
-
+/**
+ * Stores .cube file
+ */
 struct Cube {
 	std::vector<Atom> atoms;
-	Grid grid;
-	std::vector<char> title;
-	std::vector<char> description;
+	la::Grid grid;
+    types::Binary title;
+    types::Binary description;
 
-	void readCubeFile(String filename);
+	void readCubeFile(types::String filename);
+	void writeCubeFile(types::String filename) const;
 	void print() const;
-	Uint countAtoms() const;
+	void addHeader(types::Stream &stream) const;
+	void addData(types::Stream &stream) const;
+	types::Uint countAtoms() const;
+	types::Uint countPoints() const;
+	types::Real getEnergy() const;
 
+
+};
+
+/**
+ * Cube file of a wave function.
+ * CP2K will write the level and the spin in the title
+ */
+struct WfnCube : Cube {
+    types::Uint spin;
+    types::Uint wfn;
+    types::Real energy;
+    void readCubeFile(types::String filename);
 };
 
 }

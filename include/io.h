@@ -4,18 +4,15 @@
 #ifndef IO_H
 #define IO_H
 
-#include <string>
+#include "types.h"
 
 namespace io {
 
-typedef std::string String;
-typedef std::vector<char> Binary;
+bool readFile(types::String filename, types::String& content);
 
-bool readFile(String filename, String& content);
-
-bool readBinary(String filename, Binary& content);
-
-
+bool readBinary(types::String filename, types::Binary& content);
+bool writeBinary(types::String filename, const types::Binary &content);
+bool writeStream(types::String filename, const types::Stream &content);
 
 }
 #endif

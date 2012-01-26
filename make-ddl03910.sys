@@ -4,7 +4,7 @@ LD = g++ -g
 CFLAGS =  -O1 -I /usr/include
 
 # The boost library you get via Ubuntu Software Manager uses pthread
-LFLAGS = -static -pthread -L /usr/lib -lboost_program_options -lboost_regex 
+LFLAGS = -static -pthread -L /usr/lib -lboost_program_options -lboost_regex -lfftw3 -lm -lblitz
 
 #CFLAGSROB = -I /opt/intel/ict_2011/mkl/include/fftw -I ~/apps/roberto-progs/ -Wno-deprecated
 

@@ -7,9 +7,11 @@
 #include <boost/spirit/include/qi.hpp>
 
 #include "io.h"
+#include "types.h"
 
 namespace io {
 
+using namespace types;
 
 bool readFile(String filename, String& content) {
     std::ifstream file;
@@ -25,6 +27,7 @@ bool readFile(String filename, String& content) {
         return true;
 
     }
+    else throw types::fileAccessError() << boost::errinfo_file_name(filename);
 
     return false;
 }
@@ -45,8 +48,48 @@ bool readBinary(String filename, Binary& content) {
         content.resize(length);
         file.read( &content.front(), length );
 
+        file.close();
+
         return true;
     }
+    else throw types::fileAccessError() << boost::errinfo_file_name(filename);
+
+    return false;
+}
+
+bool writeBinary(String filename, const Binary& data) {
+    // Open as binary
+    using namespace std;
+    ofstream file(filename.c_str(), ios_base::binary);
+    if (file.is_open()) {
+        // Get length of data
+        ifstream::pos_type length = data.size();
+        file.write( &data.front(), length );
+
+        file.close();
+
+        return true;
+    }
+    else throw types::fileAccessError() << boost::errinfo_file_name(filename);
+
+    return false;
+}
+
+bool writeStream(String filename, const Stream& data) {
+    // Open as binary
+    using namespace std;
+    ofstream file(filename.c_str(), ios_base::binary);
+    if (file.is_open()) {
+        // Get length of data
+        ifstream::pos_type length = data.size();
+        file.write( data.c_str(), length );
+
+        file.close();
+
+        return true;
+    }
+    else throw types::fileAccessError() << boost::errinfo_file_name(filename);
+
     return false;
 }
 

@@ -26,7 +26,7 @@ using boost::phoenix::bind;
 using boost::phoenix::ref;
 
 
-// Pass attribute to class member using boost::bind
+// Pass attribute to class member using phoenix::bind
 void readDoubles() {
 	using namespace atomistic;
     std::string s = "123.0 456 789";

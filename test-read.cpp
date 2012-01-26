@@ -8,11 +8,18 @@
 #include <boost/spirit/include/qi.hpp>
 #include <ctime>
 
+#include "types.h"
+#include "io.h"
+
 using namespace std;
 
 const string filename = "2MOL-18M.cube";
 const int NFLOATS = 3000000;
 
+void boostException(){
+    std::string fileName = "notexisting", content;
+    io::readFile(fileName, content);
+}
 
 void spiritVersion() {
     cout << "Using boost::spirit::qi::phrase_parse\n";
@@ -74,10 +81,11 @@ void ifstreamVersion() {
 
 int main() {
 
-    spiritVersion();
+//    spiritVersion();
+//
+//    ifstreamVersion();
 
-    ifstreamVersion();
-
+   boostException();
     return 0;
 }
 
