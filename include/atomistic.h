@@ -33,7 +33,7 @@ struct Spectrum {
     static const types::Uint DEFAULT_N_SPINS = 2;
     std::vector<EnergyLevels> spins;
 
-    void readFromCp2k(types::String filename);
+    bool readFromCp2k(types::String filename);
     void print() const;
     void shift(types::Real deltaE);
 };
@@ -72,8 +72,10 @@ struct Cube {
     types::Binary title;
     types::Binary description;
 
-	void readCubeFile(types::String filename);
-	void writeCubeFile(types::String filename) const;
+	bool readCubeFile(types::String filename);
+	bool writeCubeFile(types::String filename) const;
+	bool writeZProfile(types::String filename) const;
+        void addZProfile(Stream &stream) const;
 	void print() const;
 	void addHeader(types::Stream &stream) const;
 	void addData(types::Stream &stream) const;

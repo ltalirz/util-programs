@@ -1,4 +1,5 @@
 #include "atomistic.h"
+#include "types.h"
 #include "io.h"
 
 #include <iostream>
@@ -72,9 +73,8 @@ bool prepare(types::String levelFileName,
     types::Real vacuumLevel = hartree.grid.getDataPoint(0,0,hartree.grid.directions[2].incrementCount);
     spectrum.shift(-vacuumLevel);
 
-    hartree.grid.squareValues();
     std::vector<types::Real> line;
-    hartree.grid.sumXY(line);
+    hartree.writeZProfile("hartree_profile");
 
     // Find highest z-coordinate
     // Note: The slowest index in cube file format is x, so in terms of storage
@@ -109,11 +109,14 @@ bool prepare(types::String levelFileName,
     hartree.grid.getNearestIndices(tempvector, indices);
     types::Uint zEndIndex = indices[2];
 
-
     // Read file with list of cubes
     std::ifstream cubeListFile;
-    std::vector<types::String> cubeList;
     cubeListFile.open(cubeListFileName.c_str());
+    if (!cubeListFile.is_open() )
+            throw types::fileAccessError() << boost::errinfo_file_name(cubeListFileName);
+    std::cout<< "File is open\n";
+    
+    std::vector<types::String> cubeList;
     types::String fileName;
 
     while (getline(cubeListFile, fileName)) {
@@ -285,4 +288,6 @@ bool extrapolate(
     outCubeFile += cubeFile;
     wfn.writeCubeFile(outCubeFile);
     std::cout << "Time to write cube : " << (clock() -t)/1000.0 << " ms\n";
+
+    return true;
 }

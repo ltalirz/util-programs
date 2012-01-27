@@ -33,6 +33,17 @@ struct fileAccessError: virtual boost::exception, virtual std::exception {
     }
 };
 
+typedef boost::error_info<struct tag_errinfo_parse, std::string> errinfo_parse;
+struct parseError: virtual boost::exception, virtual std::exception {
+    char const * what() const throw() { 
+        std::string message = "Parse error: ";
+        if(const std::string * f = boost::get_error_info<types::errinfo_parse>(*this)){
+            message += *f;
+        }
+        else message += "(no further information supplied)";
+        return message.c_str();
+    }
+};
 
 /** 
  * A policy for outputting numbers in scientific format with defined precision
@@ -50,6 +61,7 @@ template <typename t, Uint prec> struct real_policy : boost::spirit::karma::real
 {
     static unsigned int precision(t) { return prec; }
     static bool trailing_zeros(t) { return true; }
+    static int floatfield(t) { return boost::spirit::karma::real_policies<t>::fmtflags::fixed; }
 };
 typedef boost::spirit::karma::real_generator<types::Real, real_policy<types::Real, 6> >
 real6_type;

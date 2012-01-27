@@ -72,7 +72,7 @@ void Spectrum::print() const {
 }
 
 
-void Spectrum::readFromCp2k(String filename) {
+bool Spectrum::readFromCp2k(String filename) {
     String content;
     io::readFile(filename, content);
 
@@ -116,13 +116,14 @@ void Spectrum::readFromCp2k(String filename) {
         ++fermiIt;
     }
 
+    return true;
 }
 
 Uint Cube::countPoints() const {
     return grid.countPoints();
 }
 
-void Cube::readCubeFile(String filename) {
+bool Cube::readCubeFile(String filename) {
     using boost::spirit::_1;
     using boost::spirit::_2;
     using boost::spirit::_3;
@@ -181,13 +182,13 @@ void Cube::readCubeFile(String filename) {
 
     // title and description
     rule<binIt, types::Binary()> lineRule = *(char_ - eol) >> eol;
-    phrase_parse(
+    if (! phrase_parse(
         it,
         end,
         lineRule[ref(this->title) = _1] >>
         lineRule[ref(this->description)  = _1],
         space
-    );
+        )) throw types::parseError() << types::errinfo_parse("title or description");
 
     // nat, grid
     using la::Direction;
@@ -197,7 +198,7 @@ void Cube::readCubeFile(String filename) {
     rule<binIt, Direction(), space_type> directionRule =
         uint_[bind(&Direction::incrementCount, _val) = _1] >>
         vectorRule[bind(&Direction::incrementVector, _val) = _1];
-    phrase_parse(
+    if(! phrase_parse(
         it,
         end,
         (uint_)[ref(nat)=_1]  >> vectorRule[ref(this->grid.originVector)=_1] >>
@@ -205,37 +206,38 @@ void Cube::readCubeFile(String filename) {
             directionRule[push_back(ref(this->grid.directions), _1)]
         ],
         space
-    );
+        )) throw types::parseError() << types::errinfo_parse("origin vector or grid");
 
     // atoms
     rule<binIt, Atom(), space_type> atomRule =
         uint_[bind(&Atom::number, _val) = _1] >>
         double_[bind(&Atom::charge, _val) = _1] >>
         vectorRule[bind(&Atom::coordinates, _val) = _1];
-    phrase_parse(
+    if(! phrase_parse(
         it,
         end,
         repeat(val(nat))[
             atomRule[push_back(ref(this->atoms), _1)]
         ],
         space
-    );
+        )) throw types::parseError() << types::errinfo_parse("list of atoms");
 
     // cube data
     Uint npoints = this->grid.countPoints();
     this->grid.data.reserve(npoints);
-    bool finddata = phrase_parse(
+    if(! phrase_parse(
                         it,
                         end,
                         repeat(npoints)[double_],
                         space,
                         this->grid.data
-                    );
+        )) throw types::parseError() << types::errinfo_parse("data points");
 
 
     // Can map it as an Eigen::Vector3d if one likes
     //Map<Vector3d> originVector (&origin[0]);
 
+    return true;
 }
 
 
@@ -315,13 +317,44 @@ void Cube::addData(Stream &stream) const {
 }
 
 
-void Cube::writeCubeFile(String fileName) const {
+bool Cube::writeCubeFile(String fileName) const {
     Stream data;
     this->addHeader(data);
     this->addData(data);
-    io::writeStream(fileName, data);
+    
+    return io::writeStream(fileName, data);
 }
 
+bool Cube::writeZProfile(String fileName) const {
+        Stream data;
+        this->addZProfile(data);
+        return io::writeStream(fileName, data);
+}
+/**
+ * So far implemented only for cartesian grids with vectors
+ * along x,y,z
+ */
+void Cube::addZProfile(Stream &stream) const {
+        using boost::spirit::karma::right_align;
+        using boost::spirit::karma::eol;
+        using boost::spirit::karma::generate;
+
+        stream.append( "Z profile of cube file\n");
+        stream.append( "z [a0]\tdata\n");
+
+        std::back_insert_iterator<Stream> sink(stream);
+        std::vector<Real> data = grid.sumXY();
+        types::Real dZ = grid.directions[2].incrementVector[2];
+        types::Real z = 0;
+
+        std::vector<Real>::const_iterator dataIt = data.begin();
+        // Fastest direction is z, stored in directions[2]
+        while(dataIt != data.end()) {
+                generate(sink, right_align(5)[double_] << '\t' << right_align(13)[types::sci5], z, *dataIt);
+                ++dataIt;
+                z += dZ;
+        }
+}
 
 Uint Cube::countAtoms() const {
     return atoms.size();
@@ -350,7 +383,7 @@ void WfnCube::readCubeFile(String filename) {
                        uint_[ref(this->spin) = _1],
                        space);
     if (!success) {
-        throw std::runtime_error("The description of this cubefile does not contain information on the wave function.");
+        throw types::parseError() << types::errinfo_parse("The description of this cubefile does not contain information on the wave function.");
 //}
     }
 }

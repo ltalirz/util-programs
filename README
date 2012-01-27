@@ -1,0 +1,8 @@
+   Required libraries
+   ------------------
+
+ - boost
+ - blitz++
+ - fftw3
+ - Eigen 3
+

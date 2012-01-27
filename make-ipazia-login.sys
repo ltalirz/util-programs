@@ -1,7 +1,22 @@
-CC = g++
-LD = g++
-CFLAGS = -I ~/apps/boost/boost_1_48_0/
+CC = icc
+LD = icc
+
+ifdef debug
+CFLAGS = -O0 -debug
+else
+CFLAGS = -O1
+endif
+
+CFLAGS += -I ~/apps/boost/boost_1_48_0/ -I ~/local/include
+
+# ipazia has only dynamic libstd++ !
+LFLAGS  = -pthread
+LFLAGS += -L ~/apps/boost/boost_1_48_0/stage/lib/
+LFLAGS += -L ~/local/lib/
+LFLAGS += -lboost_program_options -lboost_regex -lfftw3 -lm -lblitz
+
+# The boost library you get via Ubuntu Software Manager uses pthread
+#LFLAGS = -static -pthread -L /usr/lib -lboost_program_options -lboost_regex -lfftw3 -lm -lblitz
 #CFLAGSROB = -I /opt/intel/ict_2011/mkl/include/fftw -I ~/apps/roberto-progs/ -Wno-deprecated
-LFLAGS = -L ~/apps/boost/boost_1_48_0/binaries/lib/ -lboost_program_options -static
 #LFLAGSROB = -L ~/apps/roberto-progs/ -L /opt/intel/ict_2011/mkl/lib/intel64/  -lfftw3xf_intel -lmkl_intel_lp64   -lmkl_intel_thread -lmkl_core -L /opt/intel/ict_2011/composerxe-2011.0.084/compiler/lib/intel64 -liomp5 -lpthread -lm
 

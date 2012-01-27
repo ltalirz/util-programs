@@ -1,4 +1,4 @@
-include make-ddl03910.sys
+include make-ipazia-login.sys
 
 CFLAGS += -I ./include
 #LFLAGS += -L ./lib  # No archives here
