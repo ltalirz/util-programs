@@ -3,6 +3,45 @@
 #include <vector>
 #include <math.h>
 
+
+// Assigning a matrix to a formula depending on itself
+// using tensor
+void operatorDiv(unsigned int size){
+    using namespace blitz;
+    Array<double,2> matrix1(shape(size, size));
+    matrix1 = 1.0;
+    matrix1 /= 2 * 4;
+    std::cout << matrix1; // outputs 2 2 ...
+}
+
+
+// Assigning a matrix to a formula depending on itself
+// using tensor
+void tensorSelf(unsigned int size){
+    using namespace blitz;
+    Array<double,2> matrix1(shape(size, size));
+    matrix1 = 1;
+    matrix1 = matrix1(tensor::i, tensor::j) + matrix1(tensor::i, tensor::j);
+    std::cout << matrix1; // outputs 2 2 ...
+}
+
+// Combining tensor::i with range
+// the tensor::i starts at 0, no matter what the range
+void tensorRange(unsigned int size){
+    using namespace blitz;
+    Array<double,2> matrix1(shape(size, size));
+    matrix1 = 1;
+    Array<double,2> matrix2(shape(size, size));
+    matrix2 = 2;
+
+    matrix2(Range(size/2, size-1), Range::all()) =
+            tensor::i;  // Fills with 0, 1, 2, ...
+
+    std::cout << matrix2;
+}
+
+
+
 // Speeed test of tensor notation
 void speedTest(unsigned int size){
     using namespace blitz;
@@ -126,6 +165,9 @@ int main() {
 //  fillArrayAdvanced(size);
 //  resizeArray(size);
 //  speedTest(270);
-    indexCalc(size);
+//  indexCalc(size);
+//  tensorRange(size);
+//  tensorSelf(size);
+    operatorDiv(size);
     return 0;
 }

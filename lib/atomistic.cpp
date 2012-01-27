@@ -327,30 +327,40 @@ bool Cube::writeCubeFile(String fileName) const {
 
 bool Cube::writeZProfile(String fileName) const {
         Stream data;
-        this->addZProfile(data);
+        this->addZProfile(data, "Z profile of cube file\n");
         return io::writeStream(fileName, data);
 }
+
+bool Cube::writeZProfile(String fileName, String header) const {
+        Stream data;
+        this->addZProfile(data, header);
+        return io::writeStream(fileName, data);
+}
+
+
 /**
  * So far implemented only for cartesian grids with vectors
  * along x,y,z
  */
-void Cube::addZProfile(Stream &stream) const {
+void Cube::addZProfile(Stream &stream, String header) const {
         using boost::spirit::karma::right_align;
+        using boost::spirit::karma::double_;
         using boost::spirit::karma::eol;
         using boost::spirit::karma::generate;
 
-        stream.append( "Z profile of cube file\n");
-        stream.append( "z [a0]\tdata\n");
+        stream.append(header);
+        stream.append( "z [a0]\t data\n");
 
         std::back_insert_iterator<Stream> sink(stream);
-        std::vector<Real> data = grid.sumXY();
+        std::vector<Real> data(grid.directions[2].incrementCount, 0.0);
+        grid.sumXY(data);
         types::Real dZ = grid.directions[2].incrementVector[2];
         types::Real z = 0;
 
         std::vector<Real>::const_iterator dataIt = data.begin();
         // Fastest direction is z, stored in directions[2]
         while(dataIt != data.end()) {
-                generate(sink, right_align(5)[double_] << '\t' << right_align(13)[types::sci5], z, *dataIt);
+                generate(sink, right_align(5)[double_] << '\t' << right_align(11)[types::sci5] << eol, z, *dataIt);
                 ++dataIt;
                 z += dZ;
         }

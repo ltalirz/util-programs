@@ -238,7 +238,10 @@ bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vecto
 
     return true;
 }
-
+/**
+ * reduced must already have the proper size.
+ * TODO: change this
+ */
 void Grid::sumXY(std::vector<Real>& reduced) const {
     /** The Blitz++ way
     using namespace blitz;
@@ -253,7 +256,6 @@ void Grid::sumXY(std::vector<Real>& reduced) const {
 
      **/
 
-    reduced = std::vector<Real> (directions[2].incrementCount, 0.0);
     std::vector<Real>::const_iterator itData=data.begin(), endData=data.end();
     std::vector<Real>::iterator itReduced=reduced.begin(), endReduced=reduced.end();
     // z is the fast index of the cube file, so we just need to sum

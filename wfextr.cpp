@@ -73,8 +73,9 @@ bool prepare(types::String levelFileName,
     types::Real vacuumLevel = hartree.grid.getDataPoint(0,0,hartree.grid.directions[2].incrementCount);
     spectrum.shift(-vacuumLevel);
 
-    std::vector<types::Real> line;
-    hartree.writeZProfile("hartree_profile");
+    std::string hartreeZProfile = hartreeFileName;
+    hartreeZProfile += ".zprofile";
+    hartree.writeZProfile(hartreeZProfile);
 
     // Find highest z-coordinate
     // Note: The slowest index in cube file format is x, so in terms of storage
@@ -114,7 +115,6 @@ bool prepare(types::String levelFileName,
     cubeListFile.open(cubeListFileName.c_str());
     if (!cubeListFile.is_open() )
             throw types::fileAccessError() << boost::errinfo_file_name(cubeListFileName);
-    std::cout<< "File is open\n";
     
     std::vector<types::String> cubeList;
     types::String fileName;
@@ -207,39 +207,32 @@ bool extrapolate(
         shape(nX, nY, nZ),
         neverDeleteData);
 
+    // Produce z profile
+    std::string zProfile = cubeFile;
+    at::WfnCube wfnSq = wfn;
+    wfnSq.grid.squareValues();
+    zProfile += ".zprofile";
+    wfnSq.writeZProfile(zProfile, "Z profile of sqared wave function\n");
+
+
     // Get z-plane for interpolation
     Array<types::Real,2> planeDirect(dataArray(Range::all(), Range::all(), startIndex));
 
     // Do a real 2 complex fft
     // Since a(-k)=a(k)^* (or in terms of indices: a[n-k]=a[k]^*)
     // only a[k], k=0...n/2 (rounded down) are retained
-    fftw_complex *out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nX * (nY/2 +1));
+    types::Uint nXF = nX, nYF = nY/2 + 1;
+    fftw_complex *out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nXF * nYF);
     fftw_plan plan_forward = fftw_plan_dft_r2c_2d(nX, nY, planeDirect.data(), out, FFTW_ESTIMATE);
 
-    types::Uint nXF = nX/2, nYF = nY/2;
 
     fftw_execute(plan_forward); /* repeat as needed */
 
     Array<types::Complex,2> planeFourier(
         reinterpret_cast<types::Complex *>(out),
-        shape(nX, nY/2 + 1),
+        shape(nXF, nYF),
         neverDeleteData);
 
-
-    /*
-       // Some code to print out stuff for testing
-       for(int i = 0 ; i < N ; i++ ) {
-            fprintf( stdout, "fft_result[%d] = { %2.2f, %2.2f }\n",
-                     i, out[i][0], out[i][1] );
-        }
-
-        fftw_execute( plan_backward );
-
-        for(int i = 0 ; i < N ; i++ ) {
-            fprintf( stdout, "ifft_result[%d] = { %2.2f, %2.2f }\n",
-                     i, in[i][0] / N, in[i][1] );
-        }
-    */
     t = clock();
     // Calculate the exponential prefactors.
     // Multiplication of Fourier coefficients with this prefactors
@@ -250,7 +243,7 @@ bool extrapolate(
     // since they are the same for G and -G. However for the sake of
     // simplicity of calculation, we prepare it here for both.
     // notice that the order of storage is 0...G -G...0
-    Array<types::Real,2> prefactors(nX, nY/2+1);
+    Array<types::Real,2> prefactors(nXF, nYF);
     types::Real energyTerm = 2 * wfn.energy;
     types::Real deltaZ = wfn.grid.directions[2].incrementVector[2];
     la::Cell cell = la::Cell(wfn.grid.directions);
@@ -259,20 +252,29 @@ bool extrapolate(
     types::Real dKX = 2 * M_PI / X[0];
     types::Real dKY = 2 * M_PI / Y[1];
 
-    prefactors( Range(0, nX/2 - 1), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+    prefactors( Range(0, nXF/2 - 1), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+    // tensor::i always starts from 0
+    prefactors( Range(nXF/2, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
 
-    prefactors( Range(nX/2, nX - 1), Range::all())= exp(- sqrt( (tensor::i-nX) * dKX * (tensor::i-nX) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
-
+    
+    std::cout << prefactors;
+    std::cout << planeDirect;
+    std::cout << planeFourier;
     // Sequentially update the cube file
-    Array<types::Complex,2> tempFourier(nX, nY/2 + 1);
     Array<types::Real,2> tempDirect(nX, nY);
-    fftw_plan plan_backward = fftw_plan_dft_c2r_2d(nX, nY, (fftw_complex*) tempFourier.data(), tempDirect.data(), FFTW_ESTIMATE);
+    Array<types::Complex,2> tempFourier(nXF, nYF);
+    fftw_plan plan_backward;
     for(int zIndex = startIndex + 1; zIndex <= endIndex; ++zIndex) {
         // Propagate fourier coefficients
         // The y-dim is aready cut in half, for x we have to do it
-        tempFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
+        planeFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
+    // The c2r transform destroys its input
+        tempFourier = planeFourier;
+        plan_backward = fftw_plan_dft_c2r_2d(nX, nY, (fftw_complex*) tempFourier.data(), tempDirect.data(), FFTW_ESTIMATE);
         // Do Fourier-back transform
         fftw_execute(plan_backward); /* repeat as needed */
+        tempDirect /= nX * nY;
+        std::cout << tempDirect;
         // Copy data
         dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
 
@@ -288,6 +290,15 @@ bool extrapolate(
     outCubeFile += cubeFile;
     wfn.writeCubeFile(outCubeFile);
     std::cout << "Time to write cube : " << (clock() -t)/1000.0 << " ms\n";
+
+    // Produce z profile
+    std::string outZProfile = outCubeFile;
+    outZProfile += ".zprofile";
+    wfn.writeZProfile(outZProfile, "Z profile of squared extrpolated wave function\n");
+    wfn.grid.squareValues();
+    outZProfile += ".zprofile.squared";
+    wfn.writeZProfile(outZProfile, "Z profile of squared extrpolated wave function\n");
+
 
     return true;
 }

@@ -74,8 +74,9 @@ struct Cube {
 
 	bool readCubeFile(types::String filename);
 	bool writeCubeFile(types::String filename) const;
+	bool writeZProfile(types::String filename, types::String header) const;
 	bool writeZProfile(types::String filename) const;
-        void addZProfile(Stream &stream) const;
+        void addZProfile(types::Stream &stream, types::String header) const;
 	void print() const;
 	void addHeader(types::Stream &stream) const;
 	void addData(types::Stream &stream) const;
