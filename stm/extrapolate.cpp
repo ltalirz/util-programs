@@ -162,10 +162,10 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
             !vm.count("hartree") ||
             !vm.count("start") ||
             !vm.count("width")	) {
-        std::cout << "Usage: wfextr.x [options]\n";
+        std::cout << "Usage: extrapolate [options]\n";
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
-        std::cout << "Jan 19th 2012\n";
+        std::cout << "Feb 1st 2012\n";
     } else {
         return true;
     }
@@ -181,7 +181,9 @@ bool extrapolate(
     const at::Spectrum &spectrum) {
 
     using namespace blitz;
-    
+   
+    std::cout << "--------\n Extrapolating " << cubeFile << "\n";
+
     t = clock();
     at::WfnCube wfn = at::WfnCube();
     wfn.readCubeFile(cubeFile.c_str());
@@ -204,6 +206,7 @@ bool extrapolate(
     wfnSq.grid.squareValues();
     zProfile += ".zprofile";
     wfnSq.writeZProfile(zProfile, "Z profile of sqared wave function\n");
+    std::cout << "Wrote Z profile to " << zProfile << std::endl;
 
 
     // Get z-plane for interpolation
@@ -216,8 +219,6 @@ bool extrapolate(
     types::Uint nXF = nX, nYF = nY/2 + 1;
     fftw_complex *out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nXF * nYF);
     fftw_plan plan_forward = fftw_plan_dft_r2c_2d(nX, nY, planeDirect.data(), out, FFTW_ESTIMATE);
-
-
     fftw_execute(plan_forward);
 
     Array<types::Complex,2> planeFourier(
@@ -225,16 +226,15 @@ bool extrapolate(
         shape(nXF, nYF),
         neverDeleteData);
 
-    t = clock();
     // Calculate the exponential prefactors.
-    // Multiplication of Fourier coefficients with this prefactors
-    // propagates them to next z plane.i
-    // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
-    
+    // Multiplication of Fourier coefficients with these prefactors
+    // propagates them to next z plane.
     // The prefectors would only need dimensions (nX/2 +1, nY/2 +1)
     // since they are the same for G and -G. However for the sake of
-    // simplicity of calculation, we prepare it here for both.
+    // simplicity of calculation, we prepare them here for (nX, nY/2+1) = (nXF,nYF).
+    t = clock();
     Array<types::Real,2> prefactors(nXF, nYF);
+    // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
     types::Real energyTerm = 2 * wfn.energy;
     types::Real deltaZ = wfn.grid.directions[2].incrementVector[2];
     la::Cell cell = la::Cell(wfn.grid.directions);
@@ -288,10 +288,12 @@ bool extrapolate(
     fftw_free(out);
 
     std::cout << "Time to extrapolate : " << (clock() -t)/1000.0 << " ms\n";
+
     t = clock();
-    types::String outCubeFile = "out.";
+    types::String outCubeFile = "extrapolated.";
     outCubeFile += cubeFile;
     wfn.writeCubeFile(outCubeFile);
+    std::cout << "Wrote extrapolated cube file to " << outCubeFile << std::endl;
     std::cout << "Time to write cube : " << (clock() -t)/1000.0 << " ms\n";
 
     // Produce z profile
@@ -299,6 +301,7 @@ bool extrapolate(
     std::string outZProfile = outCubeFile;
     outZProfile += ".zprofile";
     wfn.writeZProfile(outZProfile, "Z profile of squared extrpolated wave function\n");
+    std::cout << "Wrote Z profile of extrapolated cube file to " << outZProfile << std::endl;
 
     return true;
 }

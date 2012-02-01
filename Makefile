@@ -7,12 +7,13 @@ MYLIBDIR   = lib
 MYLIBOBJ   = io.o la.o atomistic.o
 MYLIBDEP   = $(addprefix $(MYLIBDIR)/, $(MYLIBOBJ))
 
-MYPROGS    = p wfextr test-read test-write test-la
+STMPROGS   =  extrapolate
 
-# These programs should not depend on my library
-TESTPROGS  =  test-regex test-qi-stack test-qi test-karma
-TESTPROGS +=  test-fftw test-fftw-2 test-stl test-blitz
-TESTPROGS +=  
+# Test targets are made like: make test/regex
+TESTP  =  p regex qi-stack qi karma
+TESTP +=  fftw fftw-2 stl blitz
+TESTP +=  read write la
+TESTTARGETS   = $(addprefix test/, $(TESTP))
 
 vpath % include
 
@@ -28,10 +29,9 @@ $(MYLIBDIR)/%.o:: %.cpp %.h
 %.o:: %.cpp
 	$(CC) -c $< -o $@ $(CFLAGS)
 
-$(TESTPROGS): %: %.o
+$(STMPROGS): %: stm/%.o $(MYLIBDEP)
+	$(LD) -o bin/$@ $^ $(LFLAGS)
+
+# Binaries of test targets are put into test/
+$(TESTTARGETS): %: %.o $(MYLIBDEP)
 	$(LD) -o $@ $^ $(LFLAGS)
-
-$(MYPROGS): %: %.o $(MYLIBDEP)
-	$(LD) -o $@ $^ $(LFLAGS)
-
-
