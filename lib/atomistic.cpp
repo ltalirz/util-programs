@@ -8,9 +8,12 @@
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/home/phoenix/bind/bind_function.hpp>
 
+#include <fstream>
+
 #include "atomistic.h"
 #include "io.h"
 #include "la.h"
+#include "types.h"
 
 
 namespace atomistic {
@@ -23,9 +26,6 @@ using boost::lexical_cast;
 using namespace types;
 
 
-EnergyLevels::EnergyLevels(std::vector<Real> levels, Real fermi): levels(levels), fermi(fermi) {
-    this->sort();
-};
 
 void EnergyLevels::sort() {
     std::sort(this->levels.begin(), this->levels.end());
@@ -58,11 +58,44 @@ void EnergyLevels::shift(Real deltaE) {
     fermi += deltaE;
 }
 
+void EnergyLevels::setFermiZero() {
+    this->shift(-fermi);
+}
+
 
 void Spectrum::shift(Real deltaE) {
     for(std::vector<EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {
         it->shift(deltaE);
     }
+}
+
+void Spectrum::setFermiZero() {
+    for(std::vector<EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {
+        it->setFermiZero();
+    }
+}
+
+EnergyLevels Spectrum::sumSpins() const {
+    EnergyLevels e = EnergyLevels();
+    // Spins may have different Fermi. The new Fermi is the average Fermi of all spins
+    // and energy levels are shifted accordingly
+    Uint counter = 0;
+    Real fermiSum = 0;
+
+    for(std::vector<EnergyLevels>::const_iterator it = this->spins.begin(); it != this->spins.end(); it++) {
+        EnergyLevels temp = *it;
+        temp.setFermiZero();
+        e.levels.insert( e.levels.begin(), temp.levels.begin(), temp.levels.end());
+        fermiSum += temp.fermi;
+        ++counter;
+    }
+
+    Real newFermi = fermiSum/counter;
+    e.fermi = 0;
+    e.shift(newFermi);
+    e.sort();
+
+    return e;
 }
 
 void Spectrum::print() const {
@@ -123,6 +156,11 @@ Uint Cube::countPoints() const {
     return grid.countPoints();
 }
 
+bool Cube::readCubeFile() {
+    return readCubeFile(this->fileName);
+}
+
+
 bool Cube::readCubeFile(String filename) {
     using boost::spirit::_1;
     using boost::spirit::_2;
@@ -155,6 +193,7 @@ bool Cube::readCubeFile(String filename) {
 
     types::Binary content;
     io::readBinary(filename, content);
+    this->fileName = filename;
     typedef types::Binary::const_iterator binIt;
     binIt it = content.begin(), end = content.end();
 
@@ -370,6 +409,50 @@ Uint Cube::countAtoms() const {
     return atoms.size();
 }
 
+
+bool Cube::readDescription(String filename) {
+    std::ifstream file;
+    file.open(filename.c_str());
+    if (file.is_open()) {
+        String line;
+        if(file.good()) std::getline(file, line);
+        title.insert(title.begin(), line.begin(), line.end());
+        if(file.good()) std::getline(file, line);
+        description.insert(description.begin(), line.begin(), line.end());
+    }
+    else throw types::fileAccessError() << boost::errinfo_file_name(filename);
+
+    this->fileName = filename;
+   
+    return true;
+} 
+
+
+
+bool WfnCube::readDescription(String filename) {
+    Cube::readDescription(filename);
+    
+    using boost::spirit::uint_;
+    using boost::spirit::_1;
+    using boost::spirit::qi::phrase_parse;
+    using boost::spirit::ascii::space;
+    using boost::phoenix::ref;
+
+    typedef types::Binary::const_iterator binIt;
+    binIt it = description.begin(), end = description.end();
+    if( !phrase_parse(
+                it,
+                end,
+                "WAVEFUNCTION" >>
+                uint_[ref(this->wfn) = _1] >>
+                "spin" >>
+                uint_[ref(this->spin) = _1],
+                space))
+        throw types::parseError() << types::errinfo_parse("The description of this cubefile does not contain information on the wave function.");
+
+    return true;
+}
+
 void WfnCube::readCubeFile(String filename) {
     Cube::readCubeFile(filename);
 
@@ -384,18 +467,15 @@ void WfnCube::readCubeFile(String filename) {
 
     typedef types::Binary::const_iterator binIt;
     binIt it = description.begin(), end = description.end();
-    bool success = phrase_parse(
-                       it,
-                       end,
-                       "WAVEFUNCTION" >>
-                       uint_[ref(this->wfn) = _1] >>
-                       "spin" >>
-                       uint_[ref(this->spin) = _1],
-                       space);
-    if (!success) {
+    if( !phrase_parse(
+                it,
+                end,
+                "WAVEFUNCTION" >>
+                uint_[ref(this->wfn) = _1] >>
+                "spin" >>
+                uint_[ref(this->spin) = _1],
+                space))
         throw types::parseError() << types::errinfo_parse("The description of this cubefile does not contain information on the wave function.");
-//}
-    }
 }
 
 }

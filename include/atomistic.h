@@ -17,11 +17,13 @@ struct EnergyLevels {
     std::vector<types::Real> levels;
     types::Real fermi;
 
-    EnergyLevels(std::vector<types::Real> levels, types::Real fermi);
+    EnergyLevels(std::vector<types::Real> levels, types::Real fermi) : levels(levels), fermi(fermi) { this->sort(); }
+    EnergyLevels() {};
     void sort();
     types::Uint count() const;
     void print() const;
     void shift(types::Real deltaE);
+    void setFermiZero();
     types::Real getLevel(types::Uint i) const;
 };
 
@@ -36,6 +38,8 @@ struct Spectrum {
     bool readFromCp2k(types::String filename);
     void print() const;
     void shift(types::Real deltaE);
+    void setFermiZero();
+    EnergyLevels sumSpins() const;
 };
 
 /** 
@@ -71,12 +75,18 @@ struct Cube {
 	la::Grid grid;
     types::Binary title;
     types::Binary description;
+    types::String fileName;
+
+    Cube(types::String filename) { readCubeFile(filename); }
+    Cube() {};
 
 	bool readCubeFile(types::String filename);
+	bool readCubeFile();
+    bool readDescription(types::String filename);
 	bool writeCubeFile(types::String filename) const;
 	bool writeZProfile(types::String filename, types::String header) const;
 	bool writeZProfile(types::String filename) const;
-        void addZProfile(types::Stream &stream, types::String header) const;
+    void addZProfile(types::Stream &stream, types::String header) const;
 	void print() const;
 	void addHeader(types::Stream &stream) const;
 	void addData(types::Stream &stream) const;
@@ -96,6 +106,7 @@ struct WfnCube : Cube {
     types::Uint wfn;
     types::Real energy;
     void readCubeFile(types::String filename);
+    bool readDescription(types::String filename);
 };
 
 }

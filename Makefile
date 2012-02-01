@@ -7,7 +7,7 @@ MYLIBDIR   = lib
 MYLIBOBJ   = io.o la.o atomistic.o
 MYLIBDEP   = $(addprefix $(MYLIBDIR)/, $(MYLIBOBJ))
 
-STMPROGS   =  extrapolate
+STMPROGS   = extrapolate sumbias
 
 # Test targets are made like: make test/regex
 TESTP  =  p regex qi-stack qi karma
