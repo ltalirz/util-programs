@@ -79,10 +79,7 @@ bool prepare(types::String levelFileName,
 
     // Find highest z-coordinate
     // Note: The slowest index in cube file format is x, so in terms of storage
-    //       modifying the number of x-coordinates is easiest.
-    //       Sadly, physicists like z.
-    //       One could reorder the cube data, such that z=>slowest, then do the
-    //       extrapolation and reorder again.
+    //       modifying the number of x-coordinates would be the easiest.
     std::vector< at::Atom >::const_iterator it = hartree.atoms.begin(), end = hartree.atoms.end();
     types::Real zTop = it->coordinates[2];
     ++it;
@@ -90,13 +87,8 @@ bool prepare(types::String levelFileName,
         if( it->coordinates[2] > zTop ) {
             zTop = it->coordinates[2];
         }
-//	 else if ( *it.coordinates[2] < zMin ){
-//		 zMin = *it.coordinates[2];
-//	 }
         ++it;
     }
-    // Might do some testing about whether there is enough space to expand
-    // for width
 
     // Define region of interpolation
     std::vector<types::Real> tempvector;
@@ -106,6 +98,7 @@ bool prepare(types::String levelFileName,
     std::vector<types::Uint> indices;
     hartree.grid.getNearestIndices(tempvector, indices);
     types::Uint zStartIndex = indices[2];
+    std::cout << "Interpolation starts at z-index " << zStartIndex << "\n";
     tempvector[2] += width;
     hartree.grid.getNearestIndices(tempvector, indices);
     types::Uint zEndIndex = indices[2];
@@ -118,7 +111,6 @@ bool prepare(types::String levelFileName,
     
     std::vector<types::String> cubeList;
     types::String fileName;
-
     while (getline(cubeListFile, fileName)) {
         cubeList.push_back(fileName);
     }
@@ -200,7 +192,6 @@ bool extrapolate(
                 nY = wfn.grid.directions[1].incrementCount,
                 nZ = endIndex;
 
-    
     wfn.grid.resize(nX, nY, nZ);
     Array<types::Real,3> dataArray(
         &wfn.grid.data[0],
@@ -216,17 +207,18 @@ bool extrapolate(
 
 
     // Get z-plane for interpolation
-    Array<types::Real,2> planeDirect(dataArray(Range::all(), Range::all(), startIndex));
+    Array<types::Real,2> planeDirect(nX, nY);
+    planeDirect = dataArray(Range::all(), Range::all(), startIndex);
 
     // Do a real 2 complex fft
     // Since a(-k)=a(k)^* (or in terms of indices: a[n-k]=a[k]^*)
-    // only a[k], k=0...n/2 (rounded down) are retained
+    // only a[k], k=0...n/2+1 (division rounded down) are retained
     types::Uint nXF = nX, nYF = nY/2 + 1;
     fftw_complex *out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nXF * nYF);
     fftw_plan plan_forward = fftw_plan_dft_r2c_2d(nX, nY, planeDirect.data(), out, FFTW_ESTIMATE);
 
 
-    fftw_execute(plan_forward); /* repeat as needed */
+    fftw_execute(plan_forward);
 
     Array<types::Complex,2> planeFourier(
         reinterpret_cast<types::Complex *>(out),
@@ -239,10 +231,9 @@ bool extrapolate(
     // propagates them to next z plane.i
     // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
     
-    // the prefectors would only need dimensions (nX/2 +1, nY/2 +1)
+    // The prefectors would only need dimensions (nX/2 +1, nY/2 +1)
     // since they are the same for G and -G. However for the sake of
     // simplicity of calculation, we prepare it here for both.
-    // notice that the order of storage is 0...G -G...0
     Array<types::Real,2> prefactors(nXF, nYF);
     types::Real energyTerm = 2 * wfn.energy;
     types::Real deltaZ = wfn.grid.directions[2].incrementVector[2];
@@ -252,32 +243,44 @@ bool extrapolate(
     types::Real dKX = 2 * M_PI / X[0];
     types::Real dKY = 2 * M_PI / Y[1];
 
-    prefactors( Range(0, nXF/2 - 1), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
-    // tensor::i always starts from 0
-    prefactors( Range(nXF/2, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+    // Notice that the order of storage is 0...G -G...-1 for uneven nX
+    // and 0...G-1 G -(G-1)...-1 for even NX
+    prefactors( Range(0, nXF/2), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+    // tensor::i always starts from 0, i.e. it ranges from 0...nXF/2-1 (nX even) or 0...nXF/2 (nX uneven)
+    if(nX % 2 == 1)
+            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+    else
+            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 -1 - tensor::i) * dKX * (nXF/2 - 1 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
 
-    
-    std::cout << prefactors;
-    std::cout << planeDirect;
-    std::cout << planeFourier;
+
+//    // Produce Fourier coefficient for gnuplot    
+//    types::Complex *pt =  reinterpret_cast<types::Complex *>(out);
+//    for(types::Uint i = 0; i < nXF; ++i){
+//            for(types::Uint j = 0;j< nYF; ++j){
+//                    std::cout << std::abs(*pt) << " ";
+//                    ++pt;
+//            }
+//            std::cout << std::endl;
+//    }
+
     // Sequentially update the cube file
     Array<types::Real,2> tempDirect(nX, nY);
     Array<types::Complex,2> tempFourier(nXF, nYF);
     fftw_plan plan_backward;
     for(int zIndex = startIndex + 1; zIndex <= endIndex; ++zIndex) {
         // Propagate fourier coefficients
-        // The y-dim is aready cut in half, for x we have to do it
         planeFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
-    // The c2r transform destroys its input
+        
+        // The c2r transform destroys its input
         tempFourier = planeFourier;
         plan_backward = fftw_plan_dft_c2r_2d(nX, nY, (fftw_complex*) tempFourier.data(), tempDirect.data(), FFTW_ESTIMATE);
+
         // Do Fourier-back transform
         fftw_execute(plan_backward); /* repeat as needed */
         tempDirect /= nX * nY;
-        std::cout << tempDirect;
+        
         // Copy data
         dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
-
     }
 
     fftw_destroy_plan(plan_forward);
@@ -292,13 +295,10 @@ bool extrapolate(
     std::cout << "Time to write cube : " << (clock() -t)/1000.0 << " ms\n";
 
     // Produce z profile
+    wfn.grid.squareValues();
     std::string outZProfile = outCubeFile;
     outZProfile += ".zprofile";
     wfn.writeZProfile(outZProfile, "Z profile of squared extrpolated wave function\n");
-    wfn.grid.squareValues();
-    outZProfile += ".zprofile.squared";
-    wfn.writeZProfile(outZProfile, "Z profile of squared extrpolated wave function\n");
-
 
     return true;
 }
