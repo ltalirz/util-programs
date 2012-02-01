@@ -1,0 +1,6 @@
+- passing stream by reference and then resizing produces
+  bogus results. need to check that
+- writing cube file takes a very long time. But not the writeStream method itself,
+  but the construction of the stream (writing to disk: 1.8s out of 34s for complete writing process)
+- make sumXY independente of input. maybe return vector.
+

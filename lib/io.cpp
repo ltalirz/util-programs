@@ -82,6 +82,7 @@ bool writeStream(String filename, const Stream& data) {
     if (file.is_open()) {
         // Get length of data
         ifstream::pos_type length = data.size();
+    
         file.write( data.c_str(), length );
 
         file.close();
