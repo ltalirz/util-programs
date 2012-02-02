@@ -73,8 +73,8 @@ struct FormatXyz {
 struct Cube {
 	std::vector<Atom> atoms;
 	la::Grid grid;
-    types::Binary title;
-    types::Binary description;
+    types::String title;
+    types::String description;
     types::String fileName;
 
     Cube(types::String filename) { readCubeFile(filename); }

@@ -239,7 +239,7 @@ bool Cube::readCubeFile(String filename) {
     */
 
     // title and description
-    rule<binIt, types::Binary()> lineRule = *(char_ - eol) >> eol;
+    rule<binIt, types::String()> lineRule = *(char_ - eol) >> eol;
     if (! phrase_parse(
         it,
         end,
@@ -308,8 +308,8 @@ void Cube::print() const {
 
 
 void Cube::addHeader(Stream &stream) const {
-    stream.append(title.begin(), title.end()); stream += '\n';
-    stream.append(description.begin(), description.end()); stream += '\n';
+    stream.append(title); stream += '\n';
+    stream.append(description); stream += '\n';
     using boost::spirit::karma::right_align;
     using boost::spirit::karma::repeat;
     using boost::spirit::karma::int_;
@@ -434,10 +434,8 @@ bool Cube::readDescription(String filename) {
     file.open(filename.c_str());
     if (file.is_open()) {
         String line;
-        if(file.good()) std::getline(file, line);
-        title.insert(title.begin(), line.begin(), line.end());
-        if(file.good()) std::getline(file, line);
-        description.insert(description.begin(), line.begin(), line.end());
+        if(file.good()) std::getline(file, title);
+        if(file.good()) std::getline(file, description);
     }
     else throw types::fileAccessError() << boost::errinfo_file_name(filename);
 
@@ -457,11 +455,9 @@ bool WfnCube::readDescription(String filename) {
     using boost::spirit::ascii::space;
     using boost::phoenix::ref;
 
-    typedef types::Binary::const_iterator binIt;
-    binIt it = description.begin(), end = description.end();
     if( !phrase_parse(
-                it,
-                end,
+                description.begin(),
+                description.end(),
                 "WAVEFUNCTION" >>
                 uint_[ref(this->wfn) = _1] >>
                 "spin" >>
@@ -484,11 +480,9 @@ void WfnCube::readCubeFile(String filename) {
 
     using boost::phoenix::ref;
 
-    typedef types::Binary::const_iterator binIt;
-    binIt it = description.begin(), end = description.end();
     if( !phrase_parse(
-                it,
-                end,
+                description.begin(),
+                description.end(),
                 "WAVEFUNCTION" >>
                 uint_[ref(this->wfn) = _1] >>
                 "spin" >>
