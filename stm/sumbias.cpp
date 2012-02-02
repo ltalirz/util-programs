@@ -31,15 +31,19 @@ bool prepare(types::String levelFileName,
              types::String biasListFileName);
 
 // Returns list with required cubes, if present in cubeList
-std::vector<Cube> getRequiredCubes(std::vector<types::Real> requiredLevels,
-         std::vector<Cube> cubeList);
+std::vector<at::WfnCube> getRequiredCubes(
+        std::vector<types::Real> requiredLevels,
+        at::Spectrum spectrum,
+        std::vector<at::WfnCube> cubeList);
 // Performs summation
 // The cubeList is not passed by reference as the contained cubes
 // only have header information. This way, not too many cubes
 // have to be kept in memory simultaneously.
 bool sum(at::Cube & sum,
-         std::vector<types::Real> requiredLevels,
-         std::vector<Cube> cubeList);
+         std::vector<at::WfnCube> toAdd);
+
+bool write(at::Cube & sum,
+           types::Real bias);
 
 // Sorts by absolute value
 bool absSort (types::Real i, types::Real j) { return ( std::abs(i) < std::abs(j) ); }
@@ -75,10 +79,10 @@ bool prepare(types::String levelFileName,
     if (!cubeListFile.is_open() )
             throw types::fileAccessError() << boost::errinfo_file_name(cubeListFileName);
     
-    std::vector<at::Cube> cubeList;
+    std::vector<at::WfnCube> cubeList;
     types::String fileName;
     while (getline(cubeListFile, fileName)) {
-        at::Cube t = at::Cube();
+        at::WfnCube t = at::WfnCube();
         t.readDescription(fileName);
         cubeList.push_back(t);
         
@@ -120,16 +124,16 @@ bool prepare(types::String levelFileName,
      biasDomains.push_back(posList); biasDomains.push_back(negList);
      std::vector< std::vector<Real> >::iterator listIt = biasDomains.begin(), listEnd = biasDomains.end();
      std::vector<Real> requiredLevels;
-     std::vector<Real> levelsCopy = levels;
+     std::vector<Real> levelsCopy = levels.levels;
      while(listIt != listEnd){
          std::vector<Real> biasDomain = *listIt; 
-         std::vector<Real>::const_iterator biasIt = biasDomain.begin(), biasEnd = biasDomain.end();
+         std::vector<Real>::iterator biasIt = biasDomain.begin(), biasEnd = biasDomain.end();
          std::sort(biasIt, biasEnd, absSort);
 
-         at::Cube sum = Cube();
+         at::Cube sum = at::Cube();
          while(biasIt != biasEnd){
              
-             std::vector<Real>::const_iterator levelIt = levelsCopy.begin(), levelEnd = levelsCopy.end();
+             std::vector<Real>::iterator levelIt = levelsCopy.begin(), levelEnd = levelsCopy.end();
              while(levelIt != levelEnd){
                  if(*levelIt * *biasIt > 0 && *levelIt * *biasIt <= *biasIt * *biasIt){
                      requiredLevels.push_back(*levelIt);
@@ -139,9 +143,10 @@ bool prepare(types::String levelFileName,
                  ++levelIt;
              }
             
-             std::vector<Cube> toAdd = get(requiredLevels, cubeList);
+             std::vector<at::WfnCube> toAdd = getRequiredCubes(requiredLevels, spectrum, cubeList);
              // perform sum of cube files as given by requiredLevels
-             sum(sum, toAdd);
+             ::sum(sum, toAdd);
+             write(sum, *biasIt);
              ++biasIt;
          }
          requiredLevels.clear();
@@ -193,19 +198,22 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     return false;
 }
 
-std::vector<Cube> getRequiredCubes(
+// Both required levels and spectrum have fermi at zero
+std::vector<at::WfnCube> getRequiredCubes(
         std::vector<types::Real> requiredLevels,
         at::Spectrum spectrum,
-        std::vector<at::Cube> cubeList){
+        std::vector<at::WfnCube> cubeList){
+
+    using namespace types;
     std::vector<Real>::const_iterator levelIt = requiredLevels.begin(), levelEnd = requiredLevels.end();
-    std::vector<at::Cube>::const_iterator cubeIt = cubeList.begin(), cubeEnd = cubeList.end();
-    std::vector<at::Cube> requiredCubes;
+    std::vector<at::WfnCube>::iterator cubeIt = cubeList.begin(), cubeEnd = cubeList.end();
+    std::vector<at::WfnCube> requiredCubes;
     bool found;
-    
+
     while(levelIt != levelEnd){
         found = false;
         while(cubeIt != cubeEnd){
-            if( spectrum[ cubeIt->spin -1] [ cubeIt->wfn -1] == *levelIt ){
+            if( spectrum.spins[ cubeIt->spin -1].getLevel(cubeIt->wfn) == *levelIt ){
                 requiredCubes.push_back(*cubeIt);
                 cubeList.erase(cubeIt);
                 found = true;
@@ -222,133 +230,29 @@ std::vector<Cube> getRequiredCubes(
 
 
 bool sum(at::Cube & sum,
-         std::vector<types::Real> requiredLevels,
-         std::vector<Cube> cubeList) {
-        
+         std::vector<at::WfnCube> toAdd) {
     
-//
-//    using namespace blitz;
-//   
-//    std::cout << "--------\n Extrapolating " << cubeFile << "\n";
-//
-//    t = clock();
-//    at::WfnCube wfn = at::WfnCube();
-//    wfn.readCubeFile(cubeFile.c_str());
-//    std::cout << "Time to read cube : " << (clock() -t)/1000.0 << " ms\n";
-//    
-//    wfn.energy = spectrum.spins[wfn.spin -1].getLevel(wfn.wfn);
-//    types::Uint nX = wfn.grid.directions[0].incrementCount,
-//                nY = wfn.grid.directions[1].incrementCount,
-//                nZ = endIndex;
-//
-//    wfn.grid.resize(nX, nY, nZ);
-//    Array<types::Real,3> dataArray(
-//        &wfn.grid.data[0],
-//        shape(nX, nY, nZ),
-//        neverDeleteData);
-//
-//    // Produce z profile
-//    std::string zProfile = cubeFile;
-//    at::WfnCube wfnSq = wfn;
-//    wfnSq.grid.squareValues();
-//    zProfile += ".zprofile";
-//    wfnSq.writeZProfile(zProfile, "Z profile of sqared wave function\n");
-//    std::cout << "Wrote Z profile to " << zProfile << std::endl;
-//
-//
-//    // Get z-plane for interpolation
-//    Array<types::Real,2> planeDirect(nX, nY);
-//    planeDirect = dataArray(Range::all(), Range::all(), startIndex);
-//
-//    // Do a real 2 complex fft
-//    // Since a(-k)=a(k)^* (or in terms of indices: a[n-k]=a[k]^*)
-//    // only a[k], k=0...n/2+1 (division rounded down) are retained
-//    types::Uint nXF = nX, nYF = nY/2 + 1;
-//    fftw_complex *out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nXF * nYF);
-//    fftw_plan plan_forward = fftw_plan_dft_r2c_2d(nX, nY, planeDirect.data(), out, FFTW_ESTIMATE);
-//    fftw_execute(plan_forward);
-//
-//    Array<types::Complex,2> planeFourier(
-//        reinterpret_cast<types::Complex *>(out),
-//        shape(nXF, nYF),
-//        neverDeleteData);
-//
-//    // Calculate the exponential prefactors.
-//    // Multiplication of Fourier coefficients with these prefactors
-//    // propagates them to next z plane.
-//    // The prefectors would only need dimensions (nX/2 +1, nY/2 +1)
-//    // since they are the same for G and -G. However for the sake of
-//    // simplicity of calculation, we prepare them here for (nX, nY/2+1) = (nXF,nYF).
-//    t = clock();
-//    Array<types::Real,2> prefactors(nXF, nYF);
-//    // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
-//    types::Real energyTerm = 2 * wfn.energy;
-//    types::Real deltaZ = wfn.grid.directions[2].incrementVector[2];
-//    la::Cell cell = la::Cell(wfn.grid.directions);
-//    vector<types::Real> X = cell.vector(0);
-//    vector<types::Real> Y = cell.vector(1);
-//    types::Real dKX = 2 * M_PI / X[0];
-//    types::Real dKY = 2 * M_PI / Y[1];
-//
-//    // Notice that the order of storage is 0...G -G...-1 for uneven nX
-//    // and 0...G-1 G -(G-1)...-1 for even NX
-//    prefactors( Range(0, nXF/2), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
-//    // tensor::i always starts from 0, i.e. it ranges from 0...nXF/2-1 (nX even) or 0...nXF/2 (nX uneven)
-//    if(nX % 2 == 1)
-//            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
-//    else
-//            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 -1 - tensor::i) * dKX * (nXF/2 - 1 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
-//
-//
-////    // Produce Fourier coefficient for gnuplot    
-////    types::Complex *pt =  reinterpret_cast<types::Complex *>(out);
-////    for(types::Uint i = 0; i < nXF; ++i){
-////            for(types::Uint j = 0;j< nYF; ++j){
-////                    std::cout << std::abs(*pt) << " ";
-////                    ++pt;
-////            }
-////            std::cout << std::endl;
-////    }
-//
-//    // Sequentially update the cube file
-//    Array<types::Real,2> tempDirect(nX, nY);
-//    Array<types::Complex,2> tempFourier(nXF, nYF);
-//    fftw_plan plan_backward;
-//    for(int zIndex = startIndex + 1; zIndex <= endIndex; ++zIndex) {
-//        // Propagate fourier coefficients
-//        planeFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
-//        
-//        // The c2r transform destroys its input
-//        tempFourier = planeFourier;
-//        plan_backward = fftw_plan_dft_c2r_2d(nX, nY, (fftw_complex*) tempFourier.data(), tempDirect.data(), FFTW_ESTIMATE);
-//
-//        // Do Fourier-back transform
-//        fftw_execute(plan_backward); /* repeat as needed */
-//        tempDirect /= nX * nY;
-//        
-//        // Copy data
-//        dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
-//    }
-//
-//    fftw_destroy_plan(plan_forward);
-//    fftw_destroy_plan(plan_backward);
-//    fftw_free(out);
-//
-//    std::cout << "Time to extrapolate : " << (clock() -t)/1000.0 << " ms\n";
-//
-//    t = clock();
-//    types::String outCubeFile = "extrapolated.";
-//    outCubeFile += cubeFile;
-//    wfn.writeCubeFile(outCubeFile);
-//    std::cout << "Wrote extrapolated cube file to " << outCubeFile << std::endl;
-//    std::cout << "Time to write cube : " << (clock() -t)/1000.0 << " ms\n";
-//
-//    // Produce z profile
-//    wfn.grid.squareValues();
-//    std::string outZProfile = outCubeFile;
-//    outZProfile += ".zprofile";
-//    wfn.writeZProfile(outZProfile, "Z profile of squared extrpolated wave function\n");
-//    std::cout << "Wrote Z profile of extrapolated cube file to " << outZProfile << std::endl;
-//
-//    return true;
-//}
+    std::vector<at::WfnCube>::const_iterator cubeIt = toAdd.begin(), cubeEnd = toAdd.end();
+    while(cubeIt != cubeEnd){
+        at::Cube tempCube = *cubeIt;
+        tempCube.readCubeFile();
+        sum += tempCube;
+    }
+
+    return true;
+} 
+
+bool write(at::Cube & sum,
+           types::Real bias) {
+    types::String title = "Sum of cube files for STM at bias ";
+    title += bias;
+    title += " V\n";
+    sum.title.insert(sum.title.begin(), title.begin(), title.end());
+
+    types::String fileName = "bias_";
+    fileName += bias;
+    fileName += ".cube";
+    sum.writeCubeFile(fileName);
+
+    return true;
+}

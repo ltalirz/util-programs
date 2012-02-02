@@ -45,6 +45,19 @@ struct parseError: virtual boost::exception, virtual std::exception {
     }
 };
 
+typedef boost::error_info<struct tag_errinfo_runtime, std::string> errinfo_runtime;
+struct runtimeError: virtual boost::exception, virtual std::exception {
+    char const * what() const throw() { 
+        std::string message = "Runtime error: ";
+        if(const std::string * f = boost::get_error_info<types::errinfo_runtime>(*this)){
+            message += *f;
+        }
+        else message += "(no further information supplied)";
+        return message.c_str();
+    }
+};
+
+
 /** 
  * A policy for outputting numbers in scientific format with defined precision
  */

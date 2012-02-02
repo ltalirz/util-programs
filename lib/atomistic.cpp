@@ -160,6 +160,25 @@ bool Cube::readCubeFile() {
     return readCubeFile(this->fileName);
 }
 
+// At the moment adds only cube files with the same grid
+// Checks just number of data points
+// TODO: Check also grid
+Cube & Cube::operator+=(const Cube &c){
+    if(this->grid.data.size() != c.grid.data.size())
+        throw types::runtimeError() << types::errinfo_runtime("Trying to add cubes of different sizes.");
+    else{
+        std::vector<Real>::iterator thisIt = this->grid.data.begin(), thisEnd = this->grid.data.end();
+        std::vector<Real>::const_iterator cIt = c.grid.data.begin();
+
+        while (thisIt != thisEnd){
+            *thisIt += *cIt;
+            ++thisIt;
+            ++cIt;
+        }
+
+        return *this;
+    }
+}
 
 bool Cube::readCubeFile(String filename) {
     using boost::spirit::_1;

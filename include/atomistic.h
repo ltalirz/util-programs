@@ -80,6 +80,8 @@ struct Cube {
     Cube(types::String filename) { readCubeFile(filename); }
     Cube() {};
 
+    Cube & operator+=(const Cube &c);
+
 	bool readCubeFile(types::String filename);
 	bool readCubeFile();
     bool readDescription(types::String filename);
@@ -105,6 +107,9 @@ struct WfnCube : Cube {
     types::Uint spin;
     types::Uint wfn;
     types::Real energy;
+    
+    Cube & operator+=(const Cube &c);
+    
     void readCubeFile(types::String filename);
     bool readDescription(types::String filename);
 };

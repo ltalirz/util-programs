@@ -25,6 +25,22 @@ using boost::spirit::_1;
 using boost::phoenix::bind;
 using boost::phoenix::ref;
 
+// Parse into string instead of std::vector<char>
+void toString() {
+    std::string s = "Hi there";
+    std::string parsed;
+
+    phrase_parse(
+        s.begin(),
+        s.end(),
+        *print,
+        space,
+        parsed
+    );
+    std::cout << parsed;
+}
+
+
 
 // Pass attribute to class member using phoenix::bind
 void readDoubles() {
@@ -102,10 +118,11 @@ void readAttribute() {
 }
 
 int main() {
-    readPhoenix();
-    readPhoenixVector();
-    readAttribute();
-    readPhoenixRule();
-    readDoubles();
+//    readPhoenix();
+//    readPhoenixVector();
+//    readAttribute();
+//    readPhoenixRule();
+//    readDoubles();
+    toString();
     return 0;
 }
