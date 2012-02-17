@@ -1,4 +1,4 @@
-include make-ipazia-login.sys
+include make-ipazia-compute.sys
 
 
 # Dependencies
@@ -18,6 +18,9 @@ TESTTARGETS   = $(addprefix test/, $(TEST))
 # These targets may depend on my library
 TESTLIB    = regex qi qi-stack qi-cptime read write la readcp types p
 TESTLIBTARGETS   = $(addprefix test/, $(TESTLIB))
+TESTMPI    = mpi
+TESTMPITARGETS   = $(addprefix test/, $(TESTLIB))
+
 
 vpath % include
 
@@ -44,3 +47,6 @@ $(TESTTARGETS): %: %.o
 	$(LD) -o $@ $^ $(LFLAGS)
 $(TESTLIBTARGETS): %: %.o $(MYLIBDEP)
 	$(LD) -o $@ $^ $(LFLAGS)
+$(TESTMPITARGETS): %: %.o
+	$(LD) -o $@ $^ $(LFLAGS)
+

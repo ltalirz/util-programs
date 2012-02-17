@@ -30,6 +30,7 @@ bool prepare(types::String levelFileName,
              types::String hartreeFileName,
              double start,
              double width);
+
 // Handles extrapolation
 /**
  * Do a 2d Fourier transform at a given z-plane,
@@ -74,13 +75,15 @@ bool prepare(types::String levelFileName,
 
     std::string hartreeZProfile = hartreeFileName;
     hartreeZProfile += ".zprofile";
+    std::cout << "Writing Z profile of Hartree potential to " 
+        << hartreeZProfile << std::endl;
     hartree.writeZProfile(hartreeZProfile);
-    std::cout << "Wrote Z profile of Hartree potential to " << hartreeZProfile << std::endl;
 
     // Find highest z-coordinate
     // Note: The slowest index in cube file format is x, so in terms of storage
     //       modifying the number of x-coordinates would be the easiest.
-    std::vector< at::Atom >::const_iterator it = hartree.atoms.begin(), end = hartree.atoms.end();
+    std::vector< at::Atom >::const_iterator it = hartree.atoms.begin(),
+        end = hartree.atoms.end();
     types::Real zTop = it->coordinates[2];
     ++it;
     while(it != end) {
@@ -98,7 +101,8 @@ bool prepare(types::String levelFileName,
     std::vector<types::Uint> indices;
     hartree.grid.getNearestIndices(tempvector, indices);
     types::Uint zStartIndex = indices[2];
-    std::cout << "Fourier transform will be performed at z-index " << zStartIndex << "\n";
+    std::cout << "Fourier transform will be performed at z-index " 
+        << zStartIndex << "\n";
     tempvector[2] += width;
     hartree.grid.getNearestIndices(tempvector, indices);
     types::Uint zEndIndex = indices[2];
@@ -112,7 +116,8 @@ bool prepare(types::String levelFileName,
     std::ifstream cubeListFile;
     cubeListFile.open(cubeListFileName.c_str());
     if (!cubeListFile.is_open() )
-            throw types::fileAccessError() << boost::errinfo_file_name(cubeListFileName);
+            throw types::fileAccessError() 
+                << boost::errinfo_file_name(cubeListFileName);
     
     std::vector<types::String> cubeList;
     types::String fileName;
@@ -210,8 +215,8 @@ bool extrapolate(
     formats::WfnCube wfnSq = wfn;
     wfnSq.grid.squareValues();
     zProfile += ".zprofile";
+    std::cout << "Writing Z profile to " << zProfile << std::endl;
     wfnSq.writeZProfile(zProfile, "Z profile of sqared wave function\n");
-    std::cout << "Wrote Z profile to " << zProfile << std::endl;
 
 
     // Get z-plane for interpolation
@@ -297,16 +302,18 @@ bool extrapolate(
     t = clock();
     types::String outCubeFile = "extrapolated.";
     outCubeFile += cubeFile;
+    std::cout << "Writing extrapolated cube file to " 
+        << outCubeFile << std::endl;
     wfn.writeCubeFile(outCubeFile);
-    std::cout << "Wrote extrapolated cube file to " << outCubeFile << std::endl;
     std::cout << "Time to write cube : " << (clock() -t)/1000.0 << " ms\n";
 
     // Produce z profile
     wfn.grid.squareValues();
     std::string outZProfile = outCubeFile;
     outZProfile += ".zprofile";
+    std::cout << "Writing Z profile of extrapolated cube file to " 
+        << outZProfile << std::endl;
     wfn.writeZProfile(outZProfile, "Z profile of squared extrpolated wave function\n");
-    std::cout << "Wrote Z profile of extrapolated cube file to " << outZProfile << std::endl;
 
     return true;
 }

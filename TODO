@@ -1,10 +1,6 @@
 - cube.cpp: passing stream by reference and then resizing produces
   bogus results. need to check that
 
-- cube.cpp: writing cube file takes a very long time. Not the writeStream method
-  itself, but the construction of the stream (writing to disk: 1.8s out of 34s
-  for complete writing process)
-
 - cube.cpp: make sumXY independente of input. maybe return vector.
 
 - extrapolate: Check that levels are appropriately shifted
@@ -13,7 +9,5 @@
   - importing less qi spirit headers? done
   - importing less qi phoenix headers? done
   - doing easier rules
-
-- check effect of -O2 or -O3
 
 - global: Change to classes instead of structs as soon as possible

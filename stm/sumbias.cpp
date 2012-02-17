@@ -77,6 +77,7 @@ bool readLists(types::String levelFileName,
     at::Spectrum spectrum = at::Spectrum();
     spectrum.readFromCp2k(levelFileName.c_str());
     spectrum.setFermiZero();
+    // Want spectrum in eV
     spectrum *= at::units::Ha / at::units::eV;
     std::cout << "Read energy levels from " << levelFileName << "\n";
 
@@ -124,7 +125,6 @@ bool readLists(types::String levelFileName,
     while(bIt != bEnd){
         if(*bIt > 0) posList.push_back(*bIt);
         else negList.push_back(*bIt);
-        std::cout << *bIt << std::endl;
         ++bIt;
     }
     std::vector< std::vector<Real> > biasDomains;
@@ -133,11 +133,12 @@ bool readLists(types::String levelFileName,
     std::cout << "Read list of bias voltages from " << biasListFileName << "\n";
 
     // Process positive and negative list separately
-    std::cout << "Starting summation\n\n";
     std::vector< std::vector<Real> >::iterator listIt = biasDomains.begin(), listEnd = biasDomains.end();
     while(listIt != listEnd){
+        std::cout << "Starting summation\n";
         sum(*listIt, cubeList, spectrum);
         ++listIt;
+
     }
 
     return true;
@@ -187,13 +188,15 @@ bool sum(std::vector<Real> biasDomain,
                             spectrum.spins[nSpin].levels[nLevel] = 1e6;
                             std::cout << "Added cube file for energy level "
                                 << nLevel << " at "
-                                << level << " Ha\n";
+                                << level << " eV\n";
                             break;
                         }
                         else ++cubeIt;
 
                     }
-                    if(!found) std::cout << "Missing cube file for energy level " << level << " Ha\n";
+                    if(!found) std::cout << "Missing cube file for energy level "
+                        << nLevel << " at "
+                        << level << " eV\n";
                 }
             }
         }
@@ -260,7 +263,13 @@ bool write(formats::Cube & sum,
     types::String fileName = "bias_";
     fileName += biasString;
     fileName += ".cube";
-    sum.writeCubeFile(fileName);
+
+    // For Robertos make_STM, the cube file must be squared
+    // I would rather move this to make_STM, but until a reprogram it, we square
+    formats::Cube temp = sum;
+    temp.grid.squareValues();
+    temp.writeCubeFile(fileName);
+
     std::cout << "Wrote file " << fileName << "\n";
 
     return true;
