@@ -1,5 +1,5 @@
 #include "la.h"
-#include "types.h"
+#include "types.hpp"
 
 #include <iostream>
 #include <iterator>
@@ -33,6 +33,42 @@ Cell::Cell(const std::vector<Direction> &directions){
 Cell Grid::cell() const {
     return Cell(directions);
 }
+
+bool Grid::hasSameGrid(const Grid &g) const {
+    if(this->directions == g.directions &&
+       this->originVector == g.originVector)
+        return true;
+    else return false;
+}
+
+
+bool operator==(const Direction& d1, const Direction& d2){
+    return (d1.incrementVector == d2.incrementVector &&
+            d1.incrementCount == d2.incrementCount);
+}
+
+const Grid & Grid::operator+=(const Grid &g){
+    if(!this->hasSameGrid(g))
+        throw types::runtimeError() <<
+            types::errinfo_runtime("Cannot add data on different grids.");
+
+    else if(this->data.size() == g.data.size() && this->data.size() > 0){
+        std::vector<Real>::iterator dataIt = data.begin(), dataEnd = data.end();
+        std::vector<Real>::const_iterator gIt = g.data.begin();
+
+        while(dataIt != dataEnd){
+            *dataIt += *gIt;
+            ++dataIt;
+            ++gIt;
+        }
+    }
+    return *this;
+}
+
+
+
+
+
 /**
  * 3d wrapper for general resize function
  */
@@ -269,6 +305,19 @@ void Grid::sumXY(std::vector<Real>& reduced) const {
         ++itReduced;
     }
 
+
+}
+
+
+void Grid::averageXY(std::vector<Real>& reduced) const {
+    sumXY(reduced);
+    Uint points = countPoints();
+    points /= directions[2].incrementCount;
+
+    std::vector<Real>::iterator it;
+    for(it = reduced.begin(); it!= reduced.end(); ++it) {
+        *it /= points;
+    }
 
 }
 

@@ -1,8 +1,8 @@
 /*
  * types.h
  */
-#ifndef TYPES_H
-#define TYPES_H
+#ifndef TYPES_HPP
+#define TYPES_HPP
 
 #include <string>
 #include <vector>

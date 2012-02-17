@@ -7,7 +7,7 @@
 #include <boost/spirit/include/qi.hpp>
 
 #include "io.h"
-#include "types.h"
+#include "types.hpp"
 
 namespace io {
 

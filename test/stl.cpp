@@ -2,6 +2,29 @@
 #include <vector>
 #include <iterator>
 
+
+// Operator << is not overloaded to cout vector
+void coutVector(){
+    std::vector<int> v; v.push_back(1);
+    //std::cout << v;
+}
+
+
+class DefaultConstr {
+    public:
+    std::vector<int> v;
+};
+
+// Testing the default initialization of a vector
+// Calling size() on an empty vector is not a problem
+// apparently.
+void testDefaultConstr(){
+    DefaultConstr d = DefaultConstr();
+    std::cout << d.v.size();
+}
+
+
+
 // Returning a const reference to a class member is problematic, since the
 // object may be destroyed before the reference.
 // Without new/delete, however, I think one cannot break it.
@@ -56,6 +79,14 @@ void reserveVector() {
     numbers[1]=3;
 }
 
+// operator== on vector
+void compareVectors() {
+    std::vector<int> v1, v2;
+    v1.push_back(1);
+    v2.push_back(1);
+    std::cout << (v1 == v2);
+}
+
 int main() {
     //reserveVector();
     //pushBack();
@@ -63,6 +94,9 @@ int main() {
     //std::string::iterator it = s.begin();
     //iteratorReference(it);
     //std::cout << *it;
-    constReference();
+    //constReference();
+    //compareVectors();
+    //testDefaultConstr();
+    coutVector();
     return 0;
 }

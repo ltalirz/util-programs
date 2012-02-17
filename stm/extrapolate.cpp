@@ -1,5 +1,6 @@
 #include "atomistic.h"
-#include "types.h"
+#include "formats.h"
+#include "types.hpp"
 #include "io.h"
 
 #include <iostream>
@@ -67,15 +68,14 @@ bool prepare(types::String levelFileName,
     at::Spectrum spectrum = at::Spectrum();
     spectrum.readFromCp2k(levelFileName.c_str());
 
-    // Read hartree cube file and shift levels by vacuum level
-    at::Cube hartree = at::Cube();
+    // Read hartree cube file
+    formats::Cube hartree = formats::Cube();
     hartree.readCubeFile(hartreeFileName.c_str());
-    types::Real vacuumLevel = hartree.grid.getDataPoint(0,0,hartree.grid.directions[2].incrementCount);
-    spectrum.shift(-vacuumLevel);
 
     std::string hartreeZProfile = hartreeFileName;
     hartreeZProfile += ".zprofile";
     hartree.writeZProfile(hartreeZProfile);
+    std::cout << "Wrote Z profile of Hartree potential to " << hartreeZProfile << std::endl;
 
     // Find highest z-coordinate
     // Note: The slowest index in cube file format is x, so in terms of storage
@@ -98,10 +98,15 @@ bool prepare(types::String levelFileName,
     std::vector<types::Uint> indices;
     hartree.grid.getNearestIndices(tempvector, indices);
     types::Uint zStartIndex = indices[2];
-    std::cout << "Interpolation starts at z-index " << zStartIndex << "\n";
+    std::cout << "Fourier transform will be performed at z-index " << zStartIndex << "\n";
     tempvector[2] += width;
     hartree.grid.getNearestIndices(tempvector, indices);
     types::Uint zEndIndex = indices[2];
+    
+    // Shift levels by vacuum Hartree potential (at extrap. index)
+    types::Real vacuumLevel = hartree.grid.getDataPoint(0,0,hartree.grid.directions[2].incrementCount -1);
+    spectrum.shift(-vacuumLevel);
+    std::cout << "Vacuum hartree potential is " << vacuumLevel << " Ha\n";
 
     // Read file with list of cubes
     std::ifstream cubeListFile;
@@ -185,7 +190,7 @@ bool extrapolate(
     std::cout << "--------\n Extrapolating " << cubeFile << "\n";
 
     t = clock();
-    at::WfnCube wfn = at::WfnCube();
+    formats::WfnCube wfn = formats::WfnCube();
     wfn.readCubeFile(cubeFile.c_str());
     std::cout << "Time to read cube : " << (clock() -t)/1000.0 << " ms\n";
     
@@ -202,7 +207,7 @@ bool extrapolate(
 
     // Produce z profile
     std::string zProfile = cubeFile;
-    at::WfnCube wfnSq = wfn;
+    formats::WfnCube wfnSq = wfn;
     wfnSq.grid.squareValues();
     zProfile += ".zprofile";
     wfnSq.writeZProfile(zProfile, "Z profile of sqared wave function\n");

@@ -1,3 +1,21 @@
+A C++ library for the daily tasks of a computational scientist working on 
+atomistic simulations.
+
+   Design principles
+   -----------------
+   Working with the most recent software for atomistic simulations requires a
+   lot of conversion between different file formats.
+   
+   As two formats never store exactly the same information, creating a single 
+   "unified" data structure for a collection of similar formats is impossible -
+   as soon as a new format turns up, the "unified" data structure would have to
+   be adjusted and potentially all code making use of it.
+
+   For this reason, formats are handled as classes of their own and conversions
+   to other formats are added to these classes as needed.
+   Only fundamental concepts that are independent of a format are represented in
+   data structures (and may be used in the format implementations).
+
    Required libraries
    ------------------
 
@@ -5,4 +23,4 @@
  - blitz++
  - fftw3
  - Eigen 3
-
+ - gsl

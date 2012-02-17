@@ -1,21 +1,28 @@
-include make-ddl03910.sys
+include make-ipazia-login.sys
 
-CFLAGS += -I ./include
-#LFLAGS += -L ./lib  # No archives here
 
-MYLIBDIR   = lib
-MYLIBOBJ   = io.o la.o atomistic.o
-MYLIBDEP   = $(addprefix $(MYLIBDIR)/, $(MYLIBOBJ))
+# Dependencies
+INCDIR     = include
+LIBDIR     = lib
+BASIC      = $(addprefix $(LIBDIR)/, io.o la.o)
+ATOMISTIC  = $(addprefix $(LIBDIR)/atomistic/, fundamental.o)
+FORMATS    = $(addprefix $(LIBDIR)/formats/, cube.o xyz.o)
+MYLIBDEP   = $(BASIC) $(ATOMISTIC) $(FORMATS)
 
 STMPROGS   = extrapolate sumbias
 
+
 # Test targets are made like: make test/regex
-TESTP  =  p regex qi-stack qi karma
-TESTP +=  fftw fftw-2 stl blitz
-TESTP +=  read write la
-TESTTARGETS   = $(addprefix test/, $(TESTP))
+TEST       = fftw fftw-2 stl blitz inherit karma
+TESTTARGETS   = $(addprefix test/, $(TEST))
+# These targets may depend on my library
+TESTLIB    = regex qi qi-stack qi-cptime read write la readcp types p
+TESTLIBTARGETS   = $(addprefix test/, $(TESTLIB))
 
 vpath % include
+
+CFLAGS += -I ./$(INCDIR)
+#LFLAGS += -L ./lib  # No archives here
 
 default: p
 
@@ -23,7 +30,7 @@ default: p
 clean:
 	find . -type f -name "*.o" -print | xargs rm
 
-$(MYLIBDIR)/%.o:: %.cpp %.h 
+$(LIBDIR)/%.o:: $(LIBDIR)/%.cpp $(INCDIR)/%.h 
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 %.o:: %.cpp
@@ -33,5 +40,7 @@ $(STMPROGS): %: stm/%.o $(MYLIBDEP)
 	$(LD) -o bin/$@ $^ $(LFLAGS)
 
 # Binaries of test targets are put into test/
-$(TESTTARGETS): %: %.o $(MYLIBDEP)
+$(TESTTARGETS): %: %.o
+	$(LD) -o $@ $^ $(LFLAGS)
+$(TESTLIBTARGETS): %: %.o $(MYLIBDEP)
 	$(LD) -o $@ $^ $(LFLAGS)

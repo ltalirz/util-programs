@@ -5,7 +5,7 @@
 #define LA_H
 
 #include <vector>
-#include "types.h"
+#include "types.hpp"
 
 namespace la {
 
@@ -34,8 +34,10 @@ struct Grid {
     const std::vector<types::Real> & getData() const { return data; }
     Cell cell() const;
 
+    const Grid & operator+=(const Grid &g);
     types::Uint countPoints() const;
     void sumXY(std::vector<types::Real>& reduced) const;
+    void averageXY(std::vector<types::Real>& reduced) const;
     void squareValues();
     bool getNearestIndices(std::vector<types::Real>& coordinates, std::vector<types::Uint>& indices) const;
     types::Real getNearestDataPoint(std::vector<types::Real>& coordinates) const;
@@ -44,6 +46,7 @@ struct Grid {
     types::Real getDataPoint(const std::vector<types::Uint>& indices) const; 
     bool checkRange(const std::vector<types::Uint>& indices) const;
     bool checkDimension(types::Uint size) const;
+    bool hasSameGrid(const Grid &g) const;
     void resize(const std::vector<types::Uint>& incrementCounts);
     void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
     private:

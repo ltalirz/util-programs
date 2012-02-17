@@ -1,58 +1,64 @@
 #include "atomistic.h"
-#include "types.h"
+#include "formats.h"
+#include "types.hpp"
 #include "io.h"
 
 #include <iostream>
 #include <fstream>
 #include <iterator>
+#include <list>
 #include <vector>
 #include <algorithm>
 #include <string>
 
+#include <boost/format.hpp>
 #include <boost/program_options.hpp>
-#include <boost/spirit/include/qi.hpp>
+
+#include <boost/spirit/include/qi_core.hpp>
+#include <boost/spirit/include/qi_eol.hpp>
+
 #include <blitz/array.h>
 #include <fftw3.h>
 
 
 #include <ctime>
 time_t t = clock();
-//#include <gsl/gsl_const_mksa.h>
 
 namespace po = boost::program_options;
 namespace at = atomistic;
+using namespace types;
 
-// Returns true, if parsing went ok
+// Returns true, if command line arguments parse ok
 bool parse(int ac, char* av[], po::variables_map& vm);
 
-// Prepares extrapolation
-bool prepare(types::String levelFileName,
+// Reads and parses the lists suppiled by command line
+// and calls sum
+bool readLists(types::String levelFileName,
              types::String cubeListFileName,
              types::String biasListFileName);
 
-// Returns list with required cubes, if present in cubeList
-std::vector<at::WfnCube> getRequiredCubes(
-        std::vector<types::Real> requiredLevels,
-        at::Spectrum spectrum,
-        std::vector<at::WfnCube> cubeList);
 // Performs summation
-// The cubeList is not passed by reference as the contained cubes
-// only have header information. This way, not too many cubes
-// have to be kept in memory simultaneously.
-bool sum(at::Cube & sum,
-         std::vector<at::WfnCube> toAdd);
+// The cubes in cubeList only have header information.
+// No more than two cubes are kept in memory simultaneously at any time.
+bool sum(std::vector<Real> biasDomain,
+        std::list<formats::WfnCube> &cubeList,
+        at::Spectrum spectrum);
 
-bool write(at::Cube & sum,
-           types::Real bias);
+// Adds appropriate description and writes cube file
+bool write(formats::Cube & sum,
+           Real bias);
 
 // Sorts by absolute value
-bool absSort (types::Real i, types::Real j) { return ( std::abs(i) < std::abs(j) ); }
+bool absSort(Real a, Real b) { return std::abs(a) < std::abs(b); }
+
+
+
 
 int main(int ac, char* av[]) {
 
     po::variables_map args;
     if (parse(ac, av, args)) {
-        prepare(args["levels"].as< types::String >(),
+        readLists(args["levels"].as< types::String >(),
                 args["cubelist"].as< types::String >(),
                 args["biaslist"].as< types::String >()
                );
@@ -62,32 +68,34 @@ int main(int ac, char* av[]) {
     return 0;
 }
 
-bool prepare(types::String levelFileName,
-             types::String cubeListFileName,
-             types::String biasListFileName) {
+bool readLists(types::String levelFileName,
+        types::String cubeListFileName,
+        types::String biasListFileName) {
     using namespace types;
 
     // Read energy levels
     at::Spectrum spectrum = at::Spectrum();
     spectrum.readFromCp2k(levelFileName.c_str());
     spectrum.setFermiZero();
-    at::EnergyLevels levels = spectrum.sumSpins();
+    spectrum *= at::units::Ha / at::units::eV;
+    std::cout << "Read energy levels from " << levelFileName << "\n";
 
     // Read descriptions of cube files
     std::ifstream cubeListFile;
     cubeListFile.open(cubeListFileName.c_str());
     if (!cubeListFile.is_open() )
-            throw types::fileAccessError() << boost::errinfo_file_name(cubeListFileName);
-    
-    std::vector<at::WfnCube> cubeList;
+        throw types::fileAccessError() << boost::errinfo_file_name(cubeListFileName);
+
+    std::list<formats::WfnCube> cubeList;
     types::String fileName;
     while (getline(cubeListFile, fileName)) {
-        at::WfnCube t = at::WfnCube();
+        formats::WfnCube t = formats::WfnCube();
         t.readDescription(fileName);
         cubeList.push_back(t);
-        
+
     }
     cubeListFile.close();
+    std::cout << "Read list of cube files from " << cubeListFileName << "\n";
 
 
     // Read list of bias voltages
@@ -100,62 +108,104 @@ bool prepare(types::String levelFileName,
     io::readBinary(biasListFileName, biasBin);
     typedef types::Binary::const_iterator binIt;
     binIt it = biasBin.begin(), end = biasBin.end();
-
-    std::vector<types::Real> biasList;
+    std::vector<Real> biasList;
     if (! phrase_parse(
-        it,
-        end,
-        double_ % eol,
-        space,
-        biasList
-        )) throw types::parseError() << types::errinfo_parse("list of bias voltages");
-     std::sort(biasList.begin(), biasList.end());
-     // And separate list into positive and nevative voltages
-     std::vector<Real>::const_iterator bIt = biasList.begin(), bEnd = biasList.end();
-     std::vector<Real> negList, posList; 
-     while(bIt != bEnd){
-         if(*bIt > 0) posList.push_back(*bIt);
-         else negList.push_back(*bIt);
-     }
-     
+                it,
+                end,
+                *double_,
+                space,
+                biasList
+                )) throw types::parseError() << types::errinfo_parse("list of bias voltages");
+    std::sort(biasList.begin(), biasList.end());
 
-     // Perform summation
-     std::vector< std::vector<Real> > biasDomains;
-     biasDomains.push_back(posList); biasDomains.push_back(negList);
-     std::vector< std::vector<Real> >::iterator listIt = biasDomains.begin(), listEnd = biasDomains.end();
-     std::vector<Real> requiredLevels;
-     std::vector<Real> levelsCopy = levels.levels;
-     while(listIt != listEnd){
-         std::vector<Real> biasDomain = *listIt; 
-         std::vector<Real>::iterator biasIt = biasDomain.begin(), biasEnd = biasDomain.end();
-         std::sort(biasIt, biasEnd, absSort);
+    // Separate list into positive and nevative voltages
+    std::vector<Real>::const_iterator bIt = biasList.begin(), bEnd = biasList.end();
+    std::vector<Real> negList, posList; 
+    while(bIt != bEnd){
+        if(*bIt > 0) posList.push_back(*bIt);
+        else negList.push_back(*bIt);
+        std::cout << *bIt << std::endl;
+        ++bIt;
+    }
+    std::vector< std::vector<Real> > biasDomains;
+    if(! posList.empty() ) biasDomains.push_back(posList);
+    if(! negList.empty() ) biasDomains.push_back(negList);
+    std::cout << "Read list of bias voltages from " << biasListFileName << "\n";
 
-         at::Cube sum = at::Cube();
-         while(biasIt != biasEnd){
-             
-             std::vector<Real>::iterator levelIt = levelsCopy.begin(), levelEnd = levelsCopy.end();
-             while(levelIt != levelEnd){
-                 if(*levelIt * *biasIt > 0 && *levelIt * *biasIt <= *biasIt * *biasIt){
-                     requiredLevels.push_back(*levelIt);
-                     // We don't need to add it again
-                     levelsCopy.erase(levelIt);
-                 }
-                 ++levelIt;
-             }
-            
-             std::vector<at::WfnCube> toAdd = getRequiredCubes(requiredLevels, spectrum, cubeList);
-             // perform sum of cube files as given by requiredLevels
-             ::sum(sum, toAdd);
-             write(sum, *biasIt);
-             ++biasIt;
-         }
-         requiredLevels.clear();
-         ++listIt;
-     }
+    // Process positive and negative list separately
+    std::cout << "Starting summation\n\n";
+    std::vector< std::vector<Real> >::iterator listIt = biasDomains.begin(), listEnd = biasDomains.end();
+    while(listIt != listEnd){
+        sum(*listIt, cubeList, spectrum);
+        ++listIt;
+    }
 
-     return true;
+    return true;
 }
 
+
+bool sum(std::vector<Real> biasDomain,
+        std::list<formats::WfnCube> &cubeList,
+        at::Spectrum spectrum){
+
+    sort(biasDomain.begin(), biasDomain.end(), absSort);
+    std::vector<Real>::iterator biasIt = biasDomain.begin(), 
+    biasEnd = biasDomain.end();
+    formats::WfnCube sum = formats::WfnCube();
+
+    while(biasIt != biasEnd){
+       std::cout << "\nBias " << *biasIt << " V\n--------------\n\n";
+
+        Uint nToSum = 0;
+        for(Uint nSpin = 0; nSpin < spectrum.spins.size(); ++nSpin){
+            for(Uint nLevel = 0; nLevel < spectrum.spins[nSpin].levels.size(); ++nLevel){
+                Real level = spectrum.spins[nSpin].levels[nLevel];
+
+                // If we need this level ...
+                if(level != 1e6 && level * *biasIt >= 0 && level * *biasIt <= *biasIt * *biasIt){
+                    // Find cube file
+                    bool found = false;
+                    std::list<formats::WfnCube>::const_iterator cubeIt = cubeList.begin(),
+                        cubeEnd = cubeList.end();
+                    while(cubeIt != cubeEnd){
+                        if(cubeIt->wfn == nLevel +1 && cubeIt->spin == nSpin +1){
+                            // If sum empty, take cube
+                            if(sum.grid.data.size() == 0){
+                                sum = *cubeIt;
+                                sum.readCubeFile();
+                            }
+                            // Else perform summation
+                            else{
+                                // Make local copy of cube file and then read
+                                formats::WfnCube temp = *cubeIt;
+                                temp.readCubeFile();
+                                sum += temp;
+                            }
+                            
+                            // Mark level as used and exit cube search
+                            found = true; ++nToSum;
+                            spectrum.spins[nSpin].levels[nLevel] = 1e6;
+                            std::cout << "Added cube file for energy level "
+                                << nLevel << " at "
+                                << level << " Ha\n";
+                            break;
+                        }
+                        else ++cubeIt;
+
+                    }
+                    if(!found) std::cout << "Missing cube file for energy level " << level << " Ha\n";
+                }
+            }
+        }
+        if(nToSum == 0) std::cout << "No new cubes for bias " << *biasIt << " V\n";
+
+        write(sum, *biasIt);
+
+        ++biasIt;
+    }
+
+    return true;
+}
 
 
 bool parse(int ac, char* av[], po::variables_map& vm) {
@@ -198,61 +248,20 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     return false;
 }
 
-// Both required levels and spectrum have fermi at zero
-std::vector<at::WfnCube> getRequiredCubes(
-        std::vector<types::Real> requiredLevels,
-        at::Spectrum spectrum,
-        std::vector<at::WfnCube> cubeList){
+bool write(formats::Cube & sum,
+           Real bias) {
+    types::String biasString = str(boost::format("%4.3f") % bias);
 
-    using namespace types;
-    std::vector<Real>::const_iterator levelIt = requiredLevels.begin(), levelEnd = requiredLevels.end();
-    std::vector<at::WfnCube>::iterator cubeIt = cubeList.begin(), cubeEnd = cubeList.end();
-    std::vector<at::WfnCube> requiredCubes;
-    bool found;
-
-    while(levelIt != levelEnd){
-        found = false;
-        while(cubeIt != cubeEnd){
-            if( spectrum.spins[ cubeIt->spin -1].getLevel(cubeIt->wfn) == *levelIt ){
-                requiredCubes.push_back(*cubeIt);
-                cubeList.erase(cubeIt);
-                found = true;
-                break;
-            }
-            ++cubeIt;
-        }
-        if(!found) std::cout << "Required cube file for energy level " << *levelIt << " Ha was not in the list.\n";
-        ++levelIt;
-    }
- 
-    return requiredCubes;
-}
-
-
-bool sum(at::Cube & sum,
-         std::vector<at::WfnCube> toAdd) {
-    
-    std::vector<at::WfnCube>::const_iterator cubeIt = toAdd.begin(), cubeEnd = toAdd.end();
-    while(cubeIt != cubeEnd){
-        at::Cube tempCube = *cubeIt;
-        tempCube.readCubeFile();
-        sum += tempCube;
-    }
-
-    return true;
-} 
-
-bool write(at::Cube & sum,
-           types::Real bias) {
-    types::String title = "Sum of cube files for STM at bias ";
-    title += bias;
-    title += " V\n";
-    sum.title.insert(sum.title.begin(), title.begin(), title.end());
+    types::String description = "Sum of cube files for STM at bias ";
+    description += biasString; 
+    description += " V";
+    sum.description = description;
 
     types::String fileName = "bias_";
-    fileName += bias;
+    fileName += biasString;
     fileName += ".cube";
     sum.writeCubeFile(fileName);
+    std::cout << "Wrote file " << fileName << "\n";
 
     return true;
 }

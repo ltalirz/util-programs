@@ -1,192 +1,41 @@
-#include <boost/format.hpp>
-#include <boost/regex.hpp>
-#include <boost/lexical_cast.hpp>
+#include <boost/spirit/include/qi_core.hpp>
+#include <boost/spirit/include/qi_eol.hpp>
+
 #include <boost/spirit/include/phoenix_core.hpp>
 #include <boost/spirit/include/phoenix_bind.hpp>
-#include <boost/spirit/include/phoenix_operator.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
-#include <boost/spirit/include/qi.hpp>
-#include <boost/spirit/home/phoenix/bind/bind_function.hpp>
+#include <boost/spirit/include/phoenix_operator.hpp>
 
 #include <fstream>
 
-#include "atomistic.h"
+#include "formats/cube.h"
+#include "atomistic/fundamental.h"
 #include "io.h"
 #include "la.h"
-#include "types.h"
+#include "types.hpp"
 
 
-namespace atomistic {
+namespace formats {
 
-typedef boost::sregex_iterator RegIt;
-typedef boost::smatch Match;
-typedef const boost::regex Regex;
-
-using boost::lexical_cast;
 using namespace types;
-
-
-
-void EnergyLevels::sort() {
-    std::sort(this->levels.begin(), this->levels.end());
-}
-
-Uint EnergyLevels::count() const {
-    return this->levels.size();
-}
-
-Real EnergyLevels::getLevel(Uint i) const {
-    if( i > 0 && i <= this->levels.size() ){
-        return this->levels[i-1];
-    } else {
-        throw std::range_error("Level index out of bounds.");
-        return 0;
-    }
-}
-
-void EnergyLevels::print() const {
-    std::cout << "Fermi energy: " << this->fermi << std::endl;
-    for(std::vector<Real>::const_iterator it = this->levels.begin(); it != this->levels.end(); it++) {
-        std::cout << *it << std::endl;
-    }
-}
-
-void EnergyLevels::shift(Real deltaE) {
-    for(std::vector<Real>::iterator it = this->levels.begin(); it != this->levels.end(); it++) {
-        *it += deltaE;
-    }
-    fermi += deltaE;
-}
-
-void EnergyLevels::setFermiZero() {
-    this->shift(-fermi);
-}
-
-
-void Spectrum::shift(Real deltaE) {
-    for(std::vector<EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {
-        it->shift(deltaE);
-    }
-}
-
-void Spectrum::setFermiZero() {
-    for(std::vector<EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {
-        it->setFermiZero();
-    }
-}
-
-EnergyLevels Spectrum::sumSpins() const {
-    EnergyLevels e = EnergyLevels();
-    // Spins may have different Fermi. The new Fermi is the average Fermi of all spins
-    // and energy levels are shifted accordingly
-    Uint counter = 0;
-    Real fermiSum = 0;
-
-    for(std::vector<EnergyLevels>::const_iterator it = this->spins.begin(); it != this->spins.end(); it++) {
-        EnergyLevels temp = *it;
-        temp.setFermiZero();
-        e.levels.insert( e.levels.begin(), temp.levels.begin(), temp.levels.end());
-        fermiSum += temp.fermi;
-        ++counter;
-    }
-
-    Real newFermi = fermiSum/counter;
-    e.fermi = 0;
-    e.shift(newFermi);
-    e.sort();
-
-    return e;
-}
-
-void Spectrum::print() const {
-    for(std::vector<EnergyLevels>::const_iterator it = this->spins.begin(); it != this->spins.end(); it++) {
-        it->print();
-    }
-}
-
-
-bool Spectrum::readFromCp2k(String filename) {
-    String content;
-    io::readFile(filename, content);
-
-    RegIt occIt(
-        content.begin(),
-        content.end(),
-        boost::regex("Eigenvalues of the occupied subspace spin([\\.\\-\\d\\s]*)"));
-    RegIt fermiIt(
-        content.begin(),
-        content.end(),
-        boost::regex("Fermi Energy \\[eV\\] :([\\.\\-\\d\\s]*)"));
-    RegIt unoccIt(
-        content.begin(),
-        content.end(),
-        boost::regex("Eigenvalues of the unoccupied subspace spin.*?iterations([\\.\\-\\d\\s]*)"));
-    RegIt dummyIt;
-
-
-    Regex fermiRegex("\\-?\\d\\.\\d{6}");
-    Regex levelRegex("\\-?\\d\\.\\d{8}");
-
-    // Iterate over spins
-    while(occIt != dummyIt) {
-        String levelData = occIt->str().append(unoccIt->str());
-        std::vector<Real> levels;
-        RegIt levelIt(levelData.begin(), levelData.end(), levelRegex);
-        while(levelIt != dummyIt) {
-            levels.push_back(lexical_cast<Real>(levelIt->str()));
-            ++levelIt;
-        }
-
-        Match fermiMatch;
-        regex_search(fermiIt->str(), fermiMatch, fermiRegex);
-        Real fermi = lexical_cast<Real>(fermiMatch);
-
-        EnergyLevels energyLevels = EnergyLevels(levels, fermi);
-        this->spins.push_back(energyLevels);
-
-        ++occIt;
-        ++unoccIt;
-        ++fermiIt;
-    }
-
-    return true;
-}
 
 Uint Cube::countPoints() const {
     return grid.countPoints();
 }
 
 bool Cube::readCubeFile() {
-    return readCubeFile(this->fileName);
+    if(! this->fileName.empty() ) return this->readCubeFile(this->fileName);
+    else throw types::runtimeError() << types::errinfo_runtime("Cannot read cube file - no file name given.");
 }
 
-// At the moment adds only cube files with the same grid
-// Checks just number of data points
-// TODO: Check also grid
-Cube & Cube::operator+=(const Cube &c){
-    if(this->grid.data.size() != c.grid.data.size())
-        throw types::runtimeError() << types::errinfo_runtime("Trying to add cubes of different sizes.");
-    else{
-        std::vector<Real>::iterator thisIt = this->grid.data.begin(), thisEnd = this->grid.data.end();
-        std::vector<Real>::const_iterator cIt = c.grid.data.begin();
-
-        while (thisIt != thisEnd){
-            *thisIt += *cIt;
-            ++thisIt;
-            ++cIt;
-        }
-
-        return *this;
-    }
+// Simply adds the data of two cubefiles with the same grid
+const Cube & Cube::operator+=(const Cube &c){
+    this->grid += c.grid;
+    return *this;
 }
 
 bool Cube::readCubeFile(String filename) {
     using boost::spirit::_1;
-    using boost::spirit::_2;
-    using boost::spirit::_3;
-    using boost::spirit::_a;
-    using boost::spirit::_b;
-    using boost::spirit::_c;
     using boost::spirit::_val;
     using boost::spirit::double_;
     using boost::spirit::int_;
@@ -197,8 +46,6 @@ bool Cube::readCubeFile(String filename) {
     using boost::spirit::qi::phrase_parse;
     using boost::spirit::qi::rule;
     using boost::spirit::qi::repeat;
-    using boost::spirit::qi::lexeme;
-    using boost::spirit::qi::locals;
 
     using boost::spirit::ascii::print;
     using boost::spirit::ascii::char_;
@@ -210,6 +57,7 @@ bool Cube::readCubeFile(String filename) {
     using boost::phoenix::ref;
     using boost::phoenix::bind;
 
+    using atomistic::Atom;
     types::Binary content;
     io::readBinary(filename, content);
     this->fileName = filename;
@@ -317,6 +165,7 @@ void Cube::addHeader(Stream &stream) const {
     using boost::spirit::karma::eol;
     using boost::spirit::karma::generate;
 
+    using atomistic::Atom;
     std::back_insert_iterator<Stream> sink(stream);
     // Origin vector
     generate(sink, 
@@ -411,7 +260,7 @@ void Cube::addZProfile(Stream &stream, String header) const {
 
         std::back_insert_iterator<Stream> sink(stream);
         std::vector<Real> data(grid.directions[2].incrementCount, 0.0);
-        grid.sumXY(data);
+        grid.averageXY(data);
         types::Real dZ = grid.directions[2].incrementVector[2];
         types::Real z = 0;
 
@@ -433,7 +282,6 @@ bool Cube::readDescription(String filename) {
     std::ifstream file;
     file.open(filename.c_str());
     if (file.is_open()) {
-        String line;
         if(file.good()) std::getline(file, title);
         if(file.good()) std::getline(file, description);
     }
@@ -443,7 +291,6 @@ bool Cube::readDescription(String filename) {
    
     return true;
 } 
-
 
 
 bool WfnCube::readDescription(String filename) {
@@ -468,7 +315,13 @@ bool WfnCube::readDescription(String filename) {
     return true;
 }
 
-void WfnCube::readCubeFile(String filename) {
+
+bool WfnCube::readCubeFile(){
+    return Cube::readCubeFile();
+}
+
+
+bool WfnCube::readCubeFile(String filename) {
     Cube::readCubeFile(filename);
 
     using boost::spirit::uint_;
@@ -489,6 +342,7 @@ void WfnCube::readCubeFile(String filename) {
                 uint_[ref(this->spin) = _1],
                 space))
         throw types::parseError() << types::errinfo_parse("The description of this cubefile does not contain information on the wave function.");
+    return true;
 }
 
 }

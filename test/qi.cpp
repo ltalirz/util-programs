@@ -2,11 +2,17 @@
 #include <boost/spirit/include/phoenix_core.hpp>
 #include <boost/spirit/include/phoenix_bind.hpp>
 #include <boost/spirit/include/phoenix_operator.hpp>
-#include <boost/spirit/include/qi.hpp>
+
+
+#include <boost/spirit/include/qi_core.hpp>
+#include <boost/spirit/include/qi_eol.hpp>
+
 #include <iostream>
 #include <string>
 
 #include "atomistic.h"
+#include "io.h"
+#include "types.hpp"
 
 using boost::spirit::ascii::space;
 using boost::spirit::ascii::print;
@@ -24,6 +30,30 @@ using boost::spirit::_1;
 
 using boost::phoenix::bind;
 using boost::phoenix::ref;
+
+
+// The space skipper eats line endings
+// before they are given to the actual parser.
+void parseNumbers(){
+    // Read list of bias voltages
+
+    std::string biasListFileName = "list";
+    types::Binary biasBin;
+    io::readBinary(biasListFileName, biasBin);
+    typedef types::Binary::const_iterator binIt;
+    binIt it = biasBin.begin(), end = biasBin.end();
+    std::vector<types::Real> biasList;
+    if (! phrase_parse(
+                it,
+                end,
+                *double_,
+                space,
+                biasList
+                )) throw types::parseError() << types::errinfo_parse("list of bias voltages");
+    std::cout << biasList[0] << biasList[1];
+}
+
+
 
 // Parse into string instead of std::vector<char>
 void toString() {
@@ -123,6 +153,7 @@ int main() {
 //    readAttribute();
 //    readPhoenixRule();
 //    readDoubles();
-    toString();
+//    toString();
+    parseNumbers();
     return 0;
 }
