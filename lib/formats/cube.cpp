@@ -244,7 +244,6 @@ bool Cube::writeZProfile(String fileName, String header) const {
         return io::writeStream(fileName, data);
 }
 
-
 /**
  * So far implemented only for cartesian grids with vectors
  * along x,y,z
@@ -259,8 +258,8 @@ void Cube::addZProfile(Stream &stream, String header) const {
         stream.append( "z [a0]\t data\n");
 
         std::back_insert_iterator<Stream> sink(stream);
-        std::vector<Real> data(grid.directions[2].incrementCount, 0.0);
-        grid.averageXY(data);
+        std::vector<Real> data;
+        this->averageXY(data);
         types::Real dZ = grid.directions[2].incrementVector[2];
         types::Real z = 0;
 

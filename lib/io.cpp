@@ -4,7 +4,10 @@
 #include <iterator>
 #include <iostream>
 #include <string>
-#include <boost/spirit/include/qi.hpp>
+
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+
 
 #include "io.h"
 #include "types.hpp"
@@ -12,6 +15,7 @@
 namespace io {
 
 using namespace types;
+namespace fs = boost::filesystem;
 
 bool readFile(String filename, String& content) {
     std::ifstream file;
@@ -94,22 +98,22 @@ bool writeStream(String filename, const Stream& data) {
     return false;
 }
 
-template<typename T>
-bool parse(const Binary& content, std::vector<T> parsed) {
-
-    // Note: phrase_parse does back-insertion, so we do *not*
-    // want to fill our vector with zeros. We might reserve some space however
-    //buf.reserve(content.size());
-
-    using namespace boost::spirit;
-    Binary::iterator begin = content.begin();
-    Binary::iterator end = content.end();
-
-    if(qi::phrase_parse(begin, end, qi::float_ , ascii::space, parsed))
-        return true;
-
-    return false;
+types::String getAbsolutePath(types::String relativePath){
+    fs::path fullPath( fs::initial_path<fs::path>());
+    fullPath = fs::system_complete( fs::path( relativePath ));
+    if( !fs::exists( fullPath ) )
+        throw types::fileAccessError() << boost::errinfo_file_name(fullPath.string());
+    else return fullPath.string();
 }
 
+types::String getFileName(types::String path){
+    fs::path p(path);
+    return p.filename().string();
+}
+
+types::String getFileExtension(types::String path){
+    fs::path p(path);
+    return p.extension().string();
+}
 
 }

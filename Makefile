@@ -1,4 +1,4 @@
-include make-ipazia-compute.sys
+include make-ipazia-login.sys
 
 
 # Dependencies
@@ -9,11 +9,15 @@ ATOMISTIC  = $(addprefix $(LIBDIR)/atomistic/, fundamental.o)
 FORMATS    = $(addprefix $(LIBDIR)/formats/, cube.o xyz.o)
 MYLIBDEP   = $(BASIC) $(ATOMISTIC) $(FORMATS)
 
+
+    
+# Programs
 STMPROGS   = extrapolate sumbias
+UTILPROGS  = cubestride
 
 
 # Test targets are made like: make test/regex
-TEST       = fftw fftw-2 stl blitz inherit karma
+TEST       = fftw fftw-2 stl blitz inherit karma progress
 TESTTARGETS   = $(addprefix test/, $(TEST))
 # These targets may depend on my library
 TESTLIB    = regex qi qi-stack qi-cptime read write la readcp types p
@@ -41,12 +45,11 @@ $(LIBDIR)/%.o:: $(LIBDIR)/%.cpp $(INCDIR)/%.h
 
 $(STMPROGS): %: stm/%.o $(MYLIBDEP)
 	$(LD) -o bin/$@ $^ $(LFLAGS)
+$(UTILPROGS): %: util/%.o $(MYLIBDEP)
+	$(LD) -o bin/$@ $^ $(LFLAGS)
 
 # Binaries of test targets are put into test/
 $(TESTTARGETS): %: %.o
 	$(LD) -o $@ $^ $(LFLAGS)
 $(TESTLIBTARGETS): %: %.o $(MYLIBDEP)
 	$(LD) -o $@ $^ $(LFLAGS)
-$(TESTMPITARGETS): %: %.o
-	$(LD) -o $@ $^ $(LFLAGS)
-

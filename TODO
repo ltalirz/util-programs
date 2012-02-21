@@ -1,9 +1,9 @@
-- cube.cpp: passing stream by reference and then resizing produces
-  bogus results. need to check that
-
 - cube.cpp: make sumXY independente of input. maybe return vector.
 
 - extrapolate: Check that levels are appropriately shifted
+- combine extrapolate and sumbias to a single program
+  => extrapolated cubes never have to be written to disk
+- program robertos make_STM in C++
 
 - cube.cpp: reduce compile time by 
   - importing less qi spirit headers? done

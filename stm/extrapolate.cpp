@@ -73,12 +73,6 @@ bool prepare(types::String levelFileName,
     formats::Cube hartree = formats::Cube();
     hartree.readCubeFile(hartreeFileName.c_str());
 
-    std::string hartreeZProfile = hartreeFileName;
-    hartreeZProfile += ".zprofile";
-    std::cout << "Writing Z profile of Hartree potential to " 
-        << hartreeZProfile << std::endl;
-    hartree.writeZProfile(hartreeZProfile);
-
     // Find highest z-coordinate
     // Note: The slowest index in cube file format is x, so in terms of storage
     //       modifying the number of x-coordinates would be the easiest.
@@ -107,10 +101,23 @@ bool prepare(types::String levelFileName,
     hartree.grid.getNearestIndices(tempvector, indices);
     types::Uint zEndIndex = indices[2];
     
-    // Shift levels by vacuum Hartree potential (at extrap. index)
-    types::Real vacuumLevel = hartree.grid.getDataPoint(0,0,hartree.grid.directions[2].incrementCount -1);
-    spectrum.shift(-vacuumLevel);
-    std::cout << "Vacuum hartree potential is " << vacuumLevel << " Ha\n";
+    // Shift levels by "vacuum" Hartree potential
+    // (aveaged value at zStartIndex)
+    std::vector<types::Real> hartreeZ;
+    hartree.averageXY(hartreeZ);
+    types::Real hartreeZStart = hartreeZ[zStartIndex];
+    spectrum.shift(-hartreeZStart);
+    std::cout << "Vacuum hartree potential is " << hartreeZStart << " Ha\n";
+    types::Real hartreeZEnd = hartreeZ[zEndIndex];
+    std::cout << "Hartree potential changes by " << 
+        hartreeZEnd - hartreeZStart << " Ha over extrapolation region.\n";
+
+    // Write Zprofile of hartree potential
+    std::string hartreeZProfile = io::getFileName(hartreeFileName);
+    hartreeZProfile += ".zprofile";
+    std::cout << "Writing Z profile of Hartree potential to " 
+        << hartreeZProfile << std::endl;
+    hartree.writeZProfile(hartreeZProfile);
 
     // Read file with list of cubes
     std::ifstream cubeListFile;
@@ -211,7 +218,7 @@ bool extrapolate(
         neverDeleteData);
 
     // Produce z profile
-    std::string zProfile = cubeFile;
+    std::string zProfile = io::getFileName(cubeFile);
     formats::WfnCube wfnSq = wfn;
     wfnSq.grid.squareValues();
     zProfile += ".zprofile";
@@ -246,6 +253,7 @@ bool extrapolate(
     Array<types::Real,2> prefactors(nXF, nYF);
     // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
     types::Real energyTerm = 2 * wfn.energy;
+    std::cout << "EnergyTerm " << energyTerm << std::endl;
     types::Real deltaZ = wfn.grid.directions[2].incrementVector[2];
     la::Cell cell = la::Cell(wfn.grid.directions);
     vector<types::Real> X = cell.vector(0);
@@ -301,7 +309,7 @@ bool extrapolate(
 
     t = clock();
     types::String outCubeFile = "extrapolated.";
-    outCubeFile += cubeFile;
+    outCubeFile += io::getFileName(cubeFile);
     std::cout << "Writing extrapolated cube file to " 
         << outCubeFile << std::endl;
     wfn.writeCubeFile(outCubeFile);

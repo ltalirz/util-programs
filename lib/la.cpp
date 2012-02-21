@@ -47,6 +47,18 @@ bool operator==(const Direction& d1, const Direction& d2){
             d1.incrementCount == d2.incrementCount);
 }
 
+/**
+ * Adapts Direction for given stride.
+ */
+void Direction::stride(types::Uint s){
+        for(std::vector<types::Real>::iterator vIt = incrementVector.begin();
+                vIt != incrementVector.end(); ++vIt){
+            *vIt *= s;
+        }
+        if(incrementCount % s == 0) incrementCount = incrementCount/s;
+        else incrementCount = incrementCount/s + 1;
+}
+
 const Grid & Grid::operator+=(const Grid &g){
     if(!this->hasSameGrid(g))
         throw types::runtimeError() <<
@@ -63,6 +75,101 @@ const Grid & Grid::operator+=(const Grid &g){
         }
     }
     return *this;
+}
+
+/**
+ * 3d wrapper for general stride function
+ */
+void Grid::stride(types::Uint sX, types::Uint sY, types::Uint sZ){
+    std::vector<Uint> tempStrides;
+    tempStrides.push_back(sX);
+    tempStrides.push_back(sY);
+    tempStrides.push_back(sZ);
+    stride(tempStrides);
+}
+
+void Grid::stride(std::vector<Uint> strides){
+    Uint dimension = strides.size();
+    checkDimension(dimension);
+  
+    // Get size for preallocation
+    Uint size = 1;
+    std::vector<Direction>::iterator dirIt = directions.begin();
+    std::vector<Uint>::iterator sIt = strides.begin();
+    std::vector<Uint> rests;
+    std::vector<Uint> newCounts;
+    std::vector<Direction> newDirections;
+    while(dirIt != directions.end()){
+        Direction d = *dirIt;
+        d.stride(*sIt);
+        size *= d.incrementCount;
+        newDirections.push_back(d);
+        newCounts.push_back(d.incrementCount);
+        
+        // Handle "rest"
+        Uint r = dirIt->incrementCount % *sIt;
+        if(r > 0) rests.push_back(r);
+        else rests.push_back(*sIt);
+
+	    ++dirIt;
+        ++sIt;
+    }
+    std::vector<Real> newData;
+    newData.resize(size);
+   
+    // Starting with direction 0, the slowest direction
+    std::vector<Real>::const_iterator dataIt = data.begin();
+    std::vector<Real>::iterator newIt = newData.begin();
+    this->strideRecursive(0, dataIt, newIt, newCounts, strides, rests);
+   
+   // Update data and incrementCounts
+   this->data = newData;
+   this->directions = newDirections;
+}
+
+void Grid::strideRecursive( 
+        Uint directionIndex,
+        std::vector<Real>::const_iterator &oldIt, 
+        std::vector<Real>::iterator &newIt,  
+        const std::vector<Uint> &newCounts,
+        const std::vector<Uint> &strides,
+        const std::vector<Uint> &rests){
+
+    Uint dimension = strides.size();
+
+    // If directionIndex is out of bounds, we are finished
+    if( directionIndex >= dimension) return;
+
+    Uint oldCount = directions[directionIndex].incrementCount,
+         newCount = newCounts[directionIndex];
+
+    Uint weight = 1;
+    for(Uint i = dimension -1; i > directionIndex; --i){
+        weight *= directions[i].incrementCount;
+    }
+    Uint stride = weight * strides[directionIndex];
+    Uint rest = weight * rests[directionIndex];
+
+    // If we are at the last dimension, we copy and move the iterators
+    if( directionIndex == dimension - 1){
+        for(Uint i = 0; i < newCount; ++i){
+            *newIt = *oldIt;
+            ++newIt;
+            oldIt += stride;
+        }
+    }
+    else{
+        for(Uint i = 0; i < newCount; ++i){
+            this->strideRecursive(directionIndex + 1, oldIt, newIt, newCounts, strides, rests);
+            // The above already moved oldIt by 1xweigth
+            oldIt += stride - weight;
+        }
+    }
+
+    // The above is sufficient, if stride divides incrementCount
+    // In this case, rest = stride
+    oldIt += rest;
+    oldIt -= stride;
 }
 
 
@@ -274,9 +381,9 @@ bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vecto
 
     return true;
 }
+
 /**
- * reduced must already have the proper size.
- * TODO: change this
+ * Fill vector reduced with the sum over XY
  */
 void Grid::sumXY(std::vector<Real>& reduced) const {
     /** The Blitz++ way
@@ -293,6 +400,7 @@ void Grid::sumXY(std::vector<Real>& reduced) const {
      **/
 
     std::vector<Real>::const_iterator itData=data.begin(), endData=data.end();
+    reduced = std::vector<Real>(directions[2].incrementCount, 0.0);
     std::vector<Real>::iterator itReduced=reduced.begin(), endReduced=reduced.end();
     // z is the fast index of the cube file, so we just need to sum
     // all of the z-compartments together
@@ -311,8 +419,7 @@ void Grid::sumXY(std::vector<Real>& reduced) const {
 
 void Grid::averageXY(std::vector<Real>& reduced) const {
     sumXY(reduced);
-    Uint points = countPoints();
-    points /= directions[2].incrementCount;
+    Uint points = countPoints() / directions[2].incrementCount;
 
     std::vector<Real>::iterator it;
     for(it = reduced.begin(); it!= reduced.end(); ++it) {

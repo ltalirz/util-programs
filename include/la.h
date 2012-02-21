@@ -12,6 +12,7 @@ namespace la {
 struct Direction {
     std::vector<types::Real> incrementVector;
     types::Uint incrementCount;
+    void stride(types::Uint s);
 };
 
 class Cell {
@@ -39,6 +40,18 @@ struct Grid {
     void sumXY(std::vector<types::Real>& reduced) const;
     void averageXY(std::vector<types::Real>& reduced) const;
     void squareValues();
+    /**
+     * In lack of a proper resampling method. No new values are calculated
+     */
+    void stride(types::Uint, types::Uint, types::Uint);
+    void stride(std::vector<types::Uint> stride);
+    void strideRecursive( 
+        types::Uint directionIndex,
+        std::vector<types::Real>::const_iterator &oldIt, 
+        std::vector<types::Real>::iterator &newIt,  
+        const std::vector<types::Uint> &newCounts,
+        const std::vector<types::Uint> &strides,
+        const std::vector<types::Uint> &rests);
     bool getNearestIndices(std::vector<types::Real>& coordinates, std::vector<types::Uint>& indices) const;
     types::Real getNearestDataPoint(std::vector<types::Real>& coordinates) const;
     types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;

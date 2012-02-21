@@ -1,6 +1,36 @@
 #include <iostream>
 #include <vector>
 #include <iterator>
+#include <sstream>
+
+
+
+// Out of range iterator alone does not give segmentation fault.
+void testIterator(){
+    std::vector<int> v(2,10);
+    std::vector<int>::iterator it = v.begin();
+    ++it;++it;++it;++it;
+}
+
+
+
+
+// I experienced problems passing stringstreams by reference
+// (after some correct data, there was bogus).
+// I am not able to reproduce them here. 
+void resizeReference(std::stringstream &s){
+    // Fill with 1E7 * 4 Bytes = 40 MByte of data
+    int n = 10E6;
+    for(int i = 0; i<n; ++i){
+        s << "a";
+    }
+}
+void passReference(){
+    std::stringstream s;
+    resizeReference(s);
+    std::string str = s.str();
+    std::cout << str.size();
+}
 
 
 // Operator << is not overloaded to cout vector
@@ -97,6 +127,9 @@ int main() {
     //constReference();
     //compareVectors();
     //testDefaultConstr();
-    coutVector();
+    //coutVector();
+    //passReference();
+    //doVector();
+    testIterator();
     return 0;
 }

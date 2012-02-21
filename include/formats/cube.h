@@ -28,6 +28,8 @@ struct Cube {
 	bool writeCubeFile(types::String filename) const;
 	bool writeZProfile(types::String filename, types::String header) const;
 	bool writeZProfile(types::String filename) const;
+    void averageXY(std::vector<types::Real> &data) const {grid.averageXY(data);}
+    std::vector<types::Real> getZProfile() const;
     void addZProfile(types::Stream &stream, types::String header) const;
 	void print() const;
 	void addHeader(types::Stream &stream) const;
