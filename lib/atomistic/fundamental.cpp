@@ -35,6 +35,8 @@ EnergyLevels & EnergyLevels::operator*=(Real factor){
     return *this;
 }
 
+
+
 void EnergyLevels::sort() {
     std::sort(this->levels.begin(), this->levels.end());
 }
@@ -59,15 +61,14 @@ void EnergyLevels::join(EnergyLevels e2){
         this->sort();
 }
 
-    
 
-Real EnergyLevels::getLevel(Uint i) const {
-    if( i > 0 && i <= this->levels.size() ){
-        return this->levels[i-1];
-    } else {
-        throw std::range_error("Level index out of bounds.");
-        return 0;
-    }
+bool EnergyLevels::rangeCheck(Uint i) const {
+    if( i <= this->levels.size()) return true;
+#ifdef ATOMISTIC_FUNDAMENTAL_STRICT
+    else throw std::range_error("Level index out of bounds.");
+#else
+    else return false;
+#endif
 }
 
 void EnergyLevels::print() const {
@@ -89,144 +90,6 @@ void EnergyLevels::setFermiZero() {
 }
 
 
-Spectrum & Spectrum::operator*=(Real factor){
-    for(std::vector<EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {
-        *it *= factor;
-    }
-
-    return *this;
-}
-
-
-void Spectrum::shift(Real deltaE) {
-    for(std::vector<EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {
-        it->shift(deltaE);
-    }
-}
-
-void Spectrum::setFermiZero() {
-    for(std::vector<EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {
-        it->setFermiZero();
-    }
-}
-
-EnergyLevels Spectrum::sumSpins() const {
-    EnergyLevels e = EnergyLevels();
-    // Spins may have different Fermi. The new Fermi is the average Fermi of all spins
-    // and energy levels are shifted accordingly
-    Uint counter = 0;
-    Real fermiSum = 0;
-
-    for(std::vector<EnergyLevels>::const_iterator it = this->spins.begin(); it != this->spins.end(); it++) {
-        e.join(*it);
-        ++counter;
-    }
-
-    return e;
-}
-
-void Spectrum::print() const {
-    for(std::vector<EnergyLevels>::const_iterator it = this->spins.begin(); it != this->spins.end(); it++) {
-        it->print();
-    }
-}
-
-bool Spectrum::readFromCp(String filename) {
-    String content;
-    io::readFile(filename, content);
-
-    RegIt occIt(
-        content.begin(),
-        content.end(),
-        boost::regex("Eigenvalues (eV), kp =   1 , spin =  ([\\.\\-\\d\\s]*)"));
-//    RegIt fermiIt(
-//        content.begin(),
-//        content.end(),
-//        boost::regex("Fermi Energy \\[eV\\] :([\\.\\-\\d\\s]*)"));
-//    RegIt unoccIt(
-//        content.begin(),
-//        content.end(),
-//        boost::regex("Eigenvalues of the unoccupied subspace spin.*?iterations([\\.\\-\\d\\s]*)"));
-    RegIt dummyIt;
-
-
-    Regex fermiRegex("\\-?\\d\\.\\d{6}");
-    Regex levelRegex("\\-?\\d+\\.\\d+");
-
-    // Iterate over spins
-    while(occIt != dummyIt) {
-        String levelData = occIt->str();
-        std::vector<Real> levels;
-        RegIt levelIt(levelData.begin(), levelData.end(), levelRegex);
-        while(levelIt != dummyIt) {
-            levels.push_back(lexical_cast<Real>(levelIt->str()));
-            ++levelIt;
-        }
-
-//        Match fermiMatch;
-//        regex_search(fermiIt->str(), fermiMatch, fermiRegex);
-//        Real fermi = lexical_cast<Real>(fermiMatch);
-//        // fermi given in eV, want Ha = 2 Ry
-//        fermi *= GSL_CONST_MKSA_ELECTRON_VOLT / 
-//            (2* GSL_CONST_MKSA_RYDBERG);
-
-        EnergyLevels energyLevels = EnergyLevels(levels, 0);
-        this->spins.push_back(energyLevels);
-
-        ++occIt;
-    }
-
-    return true;
-}
-
-bool Spectrum::readFromCp2k(String filename) {
-    String content;
-    io::readFile(filename, content);
-
-    RegIt occIt(
-        content.begin(),
-        content.end(),
-        boost::regex("Eigenvalues of the occupied subspace spin([\\.\\-\\d\\s]*)"));
-    RegIt fermiIt(
-        content.begin(),
-        content.end(),
-        boost::regex("Fermi Energy \\[eV\\] :([\\.\\-\\d\\s]*)"));
-    RegIt unoccIt(
-        content.begin(),
-        content.end(),
-        boost::regex("Eigenvalues of the unoccupied subspace spin.*?iterations([\\.\\-\\d\\s]*)"));
-    RegIt dummyIt;
-
-
-    Regex fermiRegex("\\-?\\d\\.\\d{6}");
-    Regex levelRegex("\\-?\\d\\.\\d{8}");
-
-    // Iterate over spins
-    while(occIt != dummyIt) {
-        String levelData = occIt->str().append(unoccIt->str());
-        std::vector<Real> levels;
-        RegIt levelIt(levelData.begin(), levelData.end(), levelRegex);
-        while(levelIt != dummyIt) {
-            levels.push_back(lexical_cast<Real>(levelIt->str()));
-            ++levelIt;
-        }
-
-        Match fermiMatch;
-        regex_search(fermiIt->str(), fermiMatch, fermiRegex);
-        Real fermi = lexical_cast<Real>(fermiMatch);
-        // fermi given in eV, want Ha = 2 Ry
-        fermi *= atomistic::units::eV / atomistic::units::Ha;
-
-        EnergyLevels energyLevels = EnergyLevels(levels, fermi);
-        this->spins.push_back(energyLevels);
-
-        ++occIt;
-        ++unoccIt;
-        ++fermiIt;
-    }
-
-    return true;
-}
 
 }
 

@@ -12,7 +12,7 @@ CFLAGS += -I ./$(INCDIR)
 ##### Dependencies
 BASIC      = io la
 ATOMISTIC  = $(addprefix atomistic/, fundamental)
-FORMATS    = $(addprefix formats/, cube xyz gnuplot)
+FORMATS    = $(addprefix formats/, cp cp2k cube xyz gnuplot)
 
 COMPONENTS = $(BASIC) $(ATOMISTIC) $(FORMATS)
 INCDEP     =  $(addprefix $(INCDIR)/, $(addsuffix .hpp, $(COMPONENTS)))

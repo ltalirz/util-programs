@@ -20,6 +20,7 @@ time_t t = clock();
 
 namespace po = boost::program_options;
 namespace at = atomistic;
+namespace cp2k = formats::cp2k;
 
 // Returns true, if parsing went ok
 bool parse(int ac, char* av[], po::variables_map& vm);
@@ -41,7 +42,7 @@ bool prepare(types::String levelFileName,
 bool extrapolate(types::String cubeFile,
                  types::Uint zStartIndex,
                  types::Uint zEndIndex,
-                 const at::Spectrum &spectrum);
+                 const cp2k::Spectrum &spectrum);
 
 int main(int ac, char* av[]) {
 
@@ -66,7 +67,7 @@ bool prepare(types::String levelFileName,
              types::Real width) {
 
     // Read energy levels
-    at::Spectrum spectrum = at::Spectrum();
+    cp2k::Spectrum spectrum = cp2k::Spectrum();
     spectrum.readFromCp2k(levelFileName.c_str());
 
     // Read hartree cube file
@@ -207,7 +208,7 @@ bool extrapolate(
     types::String cubeFile,
     types::Uint startIndex,
     types::Uint endIndex,
-    const at::Spectrum &spectrum) {
+    const cp2k::Spectrum &spectrum) {
 
     using namespace blitz;
    

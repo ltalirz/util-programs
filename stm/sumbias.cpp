@@ -26,6 +26,7 @@ time_t t = clock();
 
 namespace po = boost::program_options;
 namespace at = atomistic;
+namespace cp2k = formats::cp2k;
 using namespace types;
 
 // Returns true, if command line arguments parse ok
@@ -42,7 +43,7 @@ bool readLists(types::String levelFileName,
 // No more than two cubes are kept in memory simultaneously at any time.
 bool sum(std::vector<Real> biasDomain,
         std::list<formats::WfnCube> &cubeList,
-        at::Spectrum spectrum);
+        cp2k::Spectrum spectrum);
 
 // Adds appropriate description and writes cube file
 bool write(formats::Cube & sum,
@@ -74,7 +75,7 @@ bool readLists(types::String levelFileName,
     using namespace types;
 
     // Read energy levels
-    at::Spectrum spectrum = at::Spectrum();
+    cp2k::Spectrum spectrum = cp2k::Spectrum();
     spectrum.readFromCp2k(levelFileName.c_str());
     spectrum.setFermiZero();
     // Want spectrum in eV
@@ -147,7 +148,7 @@ bool readLists(types::String levelFileName,
 
 bool sum(std::vector<Real> biasDomain,
         std::list<formats::WfnCube> &cubeList,
-        at::Spectrum spectrum){
+        cp2k::Spectrum spectrum){
 
     sort(biasDomain.begin(), biasDomain.end(), absSort);
     std::vector<Real>::iterator biasIt = biasDomain.begin(), 
@@ -159,8 +160,8 @@ bool sum(std::vector<Real> biasDomain,
 
         Uint nToSum = 0;
         for(Uint spin = 0; spin < spectrum.spins.size(); ++spin){
-            for(Uint level = 0; level < spectrum.spins[spin].levels.size(); ++level){
-                Real energy = spectrum.spins[spin].levels[level];
+            for(Uint level = 1; level <= spectrum.spins[spin].count(); ++level){
+                Real energy = spectrum.spins[spin].getLevel(level);
 
                 // If we need this level ...
                 if(energy != 1e6 && energy * *biasIt >= 0 && energy * *biasIt <= *biasIt * *biasIt){
@@ -170,7 +171,7 @@ bool sum(std::vector<Real> biasDomain,
                         cubeIt = cubeList.begin(),
                         cubeEnd = cubeList.end();
                     while(cubeIt != cubeEnd){
-                        if(cubeIt->wfn == level +1 && cubeIt->spin == spin +1){
+                        if(cubeIt->wfn == level && cubeIt->spin == spin +1){
                             // If sum empty, take cube
                             if(sum.grid.data.size() == 0){
                                 sum = *cubeIt;
@@ -188,9 +189,9 @@ bool sum(std::vector<Real> biasDomain,
                             
                             // Mark level as used and exit cube search
                             found = true; ++nToSum;
-                            spectrum.spins[spin].levels[level] = 1e6;
+                            spectrum.spins[spin].setLevel(level, 1e6);
                             std::cout << "Added cube file for energy level "
-                                << level+1 << " at "
+                                << level << " at "
                                 << energy << " eV\n";
                             break;
                         }
@@ -198,7 +199,7 @@ bool sum(std::vector<Real> biasDomain,
 
                     }
                     if(!found) std::cout << "Missing cube file for energy level "
-                        << level+1 << " at "
+                        << level << " at "
                         << energy << " eV\n";
                 }
             }

@@ -40,29 +40,17 @@ public:
     void shift(types::Real deltaE);
     void setFermiZero();
 
-    types::Real getLevel(types::Uint i) const;
     const std::vector<types::Real> & getLevels() const { return levels; };
     void setLevels(const std::vector<types::Real> l) { levels = l; };
     types::Real getFermi() const { return fermi; }
     types::Real setFermi(types::Real f) { fermi = f; }
-
-};
-
-/**
- * A whole spectrum, containing several sets of energy levels
- * (spins, kpoints)
- */
-struct Spectrum {
-    static const types::Uint DEFAULT_N_SPINS = 2;
-    std::vector<EnergyLevels> spins;
-
-    Spectrum & operator*=(types::Real factor);
-    bool readFromCp2k(types::String filename);
-    bool readFromCp(types::String filename);
-    void print() const;
-    void shift(types::Real deltaE);
-    void setFermiZero();
-    EnergyLevels sumSpins() const;
+    bool rangeCheck(types::Uint i) const;
+    types::Real getLevel(types::Uint i) const {
+        if(rangeCheck(i)) return levels[i-1]; 
+    }
+    void setLevel(types::Uint i, types::Real value) { 
+        if(rangeCheck(i)) levels[i-1] = value; 
+    }
 };
 
 /**
