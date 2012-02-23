@@ -117,7 +117,19 @@ bool prepare(types::String levelFileName,
     hartreeZProfile += ".zprofile";
     std::cout << "Writing Z profile of Hartree potential to " 
         << hartreeZProfile << std::endl;
+    using namespace blitz;
     hartree.writeZProfile(hartreeZProfile);
+    
+    // Write z plane of hartree potential for gnuplot
+    std::vector<types::Real> hartreePlane;
+    hartree.getZPlane(zStartIndex, hartreePlane);
+    std::cout << hartreePlane[20] << "plane\n";
+    types::String s = formats::gnuplot::writeMatrix(
+            hartreePlane,
+            hartree.grid.directions[0].incrementCount,
+            hartree.grid.directions[1].incrementCount);
+    io::writeStream("hartree.zplane",s);
+
 
     // Read file with list of cubes
     std::ifstream cubeListFile;
@@ -224,7 +236,6 @@ bool extrapolate(
     zProfile += ".zprofile";
     std::cout << "Writing Z profile to " << zProfile << std::endl;
     wfnSq.writeZProfile(zProfile, "Z profile of sqared wave function\n");
-
 
     // Get z-plane for interpolation
     Array<types::Real,2> planeDirect(nX, nY);

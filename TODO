@@ -1,6 +1,3 @@
-- cube.cpp: make sumXY independente of input. maybe return vector.
-
-- extrapolate: Check that levels are appropriately shifted
 - combine extrapolate and sumbias to a single program
   => extrapolated cubes never have to be written to disk
 - program robertos make_STM in C++
@@ -11,3 +8,10 @@
   - doing easier rules
 
 - global: Change to classes instead of structs as soon as possible
+
+- la: replace Grid by template<unsigned int dim> Grid and implement
+  stride/resize using Blitz++
+  One might think of a specialization CubeGrid and move the convenience
+  functions there  (declared in formats/cube.h)
+- Sadly, there is no const way of mapping preexisting data with blitz (?)
+  Think about a solution for that

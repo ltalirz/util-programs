@@ -1,7 +1,10 @@
 A C++ library for the daily tasks of a computational scientist working on 
 atomistic simulations.
 
-   Design principles
+   3    Design principles
+   ----------------------
+ 
+   3.1  File formats
    -----------------
    Working with the most recent software for atomistic simulations requires a
    lot of conversion between different file formats.
@@ -16,8 +19,21 @@ atomistic simulations.
    Only fundamental concepts that are independent of a format are represented in
    data structures (and may be used in the format implementations).
 
-   Required libraries
-   ------------------
+   3.2 Algorithms for n dimensions
+   -------------------------------
+   It is assumed that the number of dimensions is known at compile time.
+   Template based methods may thus be used instead of resorting to recursion.
+   Where the number of dimensions is fixed a priori, a specialized
+   implementation will also do.
+
+   Miscellaneous
+   -------------
+ - The class interface should not depend on external libraries explicitly
+   in order to make it possible to move to another library.
+   This may require some code duplication ...
+    
+   4 Required libraries
+   --------------------
 
  - boost
  - blitz++

@@ -1,7 +1,7 @@
 #include "formats/xyz.h"
 
 
-namespace atomistic {
+namespace formats {
 
 using namespace types;
 

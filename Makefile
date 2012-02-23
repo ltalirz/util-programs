@@ -1,19 +1,27 @@
 include make-ipazia-login.sys
 
-
-# Dependencies
+##### Flags
 INCDIR     = include
 LIBDIR     = lib
-BASIC      = $(addprefix $(LIBDIR)/, io.o la.o)
-ATOMISTIC  = $(addprefix $(LIBDIR)/atomistic/, fundamental.o)
-FORMATS    = $(addprefix $(LIBDIR)/formats/, cube.o xyz.o)
-MYLIBDEP   = $(BASIC) $(ATOMISTIC) $(FORMATS)
 
+vpath % $(INCDIR)
 
-    
-# Programs
+CFLAGS += -I ./$(INCDIR)
+#LFLAGS += -L ./lib  # No archives here
+
+##### Dependencies
+BASIC      = io la
+ATOMISTIC  = $(addprefix atomistic/, fundamental)
+FORMATS    = $(addprefix formats/, cube xyz gnuplot)
+
+COMPONENTS = $(BASIC) $(ATOMISTIC) $(FORMATS)
+INCDEP     =  $(addprefix $(INCDIR)/, $(addsuffix .h, $(COMPONENTS)))
+INCDEP    +=  $(INCDIR)/types.hpp
+LIBDEP     = $(addprefix $(LIBDIR)/, $(addsuffix .o, $(COMPONENTS)))
+
+##### Programs
 STMPROGS   = extrapolate sumbias
-UTILPROGS  = cubestride
+UTILPROGS  = cubestride cubescale cubesquare cuberoot cubeabs
 
 
 # Test targets are made like: make test/regex
@@ -25,11 +33,7 @@ TESTLIBTARGETS   = $(addprefix test/, $(TESTLIB))
 TESTMPI    = mpi
 TESTMPITARGETS   = $(addprefix test/, $(TESTLIB))
 
-
-vpath % include
-
-CFLAGS += -I ./$(INCDIR)
-#LFLAGS += -L ./lib  # No archives here
+##### Targets
 
 default: p
 
@@ -39,17 +43,17 @@ clean:
 
 $(LIBDIR)/%.o:: $(LIBDIR)/%.cpp $(INCDIR)/%.h 
 	$(CC) -c $< -o $@ $(CFLAGS)
-
-%.o:: %.cpp
+# General programs might depend on headers of the library
+%.o:: %.cpp $(INCDEP)
 	$(CC) -c $< -o $@ $(CFLAGS)
 
-$(STMPROGS): %: stm/%.o $(MYLIBDEP)
+$(STMPROGS): %: stm/%.o $(LIBDEP)
 	$(LD) -o bin/$@ $^ $(LFLAGS)
-$(UTILPROGS): %: util/%.o $(MYLIBDEP)
+$(UTILPROGS): %: util/%.o $(LIBDEP)
 	$(LD) -o bin/$@ $^ $(LFLAGS)
 
 # Binaries of test targets are put into test/
 $(TESTTARGETS): %: %.o
 	$(LD) -o $@ $^ $(LFLAGS)
-$(TESTLIBTARGETS): %: %.o $(MYLIBDEP)
+$(TESTLIBTARGETS): %: %.o $(LIBDEP)
 	$(LD) -o $@ $^ $(LFLAGS)

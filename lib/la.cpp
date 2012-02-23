@@ -5,7 +5,10 @@
 #include <iterator>
 #include <algorithm>
 #include <vector>
+#include <cmath>
 #include <boost/format.hpp>
+
+#include <blitz/array.h>
 
 #include <eigen3/Eigen/Dense>
 
@@ -275,6 +278,21 @@ void Grid::squareValues() {
     }
 }
 
+void Grid::abs() {
+    std::vector<Real>::iterator it = data.begin(), end = data.end();
+    while(it != end) {
+        *it = std::abs(*it);
+        ++it;
+    }
+}
+void Grid::sqrt() {
+    std::vector<Real>::iterator it = data.begin(), end = data.end();
+    while(it != end) {
+        *it = std::sqrt(std::abs(*it));
+        ++it;
+    }
+}
+
 bool Grid::checkDimension(Uint size) const {
     if (size != directions.size()) {
         throw std::range_error("Number of given indices does not equal number of grid directions.");
@@ -381,6 +399,31 @@ bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vecto
 
     return true;
 }
+
+const Grid & Grid::operator*=(types::Real x){
+    std::vector<Real>::iterator dataIt = data.begin(),
+        dataEnd = data.end();
+    while(dataIt != dataEnd){
+        *dataIt *= x;
+        ++dataIt;
+    }
+    return *this;
+}
+
+void Grid::zPlane(Uint zIndex, std::vector<types::Real> &plane) {
+    using namespace blitz;
+    std::vector<Real> test;
+    const Array<Real,3> dataArray(
+            &data[0],
+            shape(directions[0].incrementCount, 
+                  directions[1].incrementCount,         
+                  directions[2].incrementCount),    
+            neverDeleteData);
+    Array<types::Real,2> blitzPlane =
+        dataArray(Range::all(), Range::all(), zIndex);
+    plane.assign(blitzPlane.begin(), blitzPlane.end());
+}
+
 
 /**
  * Fill vector reduced with the sum over XY

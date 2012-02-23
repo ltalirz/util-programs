@@ -36,15 +36,39 @@ struct Grid {
     Cell cell() const;
 
     const Grid & operator+=(const Grid &g);
-    types::Uint countPoints() const;
-    void sumXY(std::vector<types::Real>& reduced) const;
-    void averageXY(std::vector<types::Real>& reduced) const;
+    const Grid & operator*=(types::Real x);
     void squareValues();
+    void sqrt();
+    void abs();
+    types::Uint countPoints() const;
+
+    void sumXY(std::vector<types::Real>& reduced) const;
+    void zPlane(types::Uint index, std::vector<types::Real> &plane);
+    void averageXY(std::vector<types::Real>& reduced) const;
     /**
      * In lack of a proper resampling method. No new values are calculated
      */
     void stride(types::Uint, types::Uint, types::Uint);
     void stride(std::vector<types::Uint> stride);
+    void resize(const std::vector<types::Uint>& incrementCounts);
+    void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
+    
+    bool getNearestIndices(std::vector<types::Real>& coordinates, std::vector<types::Uint>& indices) const;
+    types::Real getNearestDataPoint(std::vector<types::Real>& coordinates) const;
+    types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
+    types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
+    types::Real getDataPoint(const std::vector<types::Uint>& indices) const; 
+    
+    bool checkRange(const std::vector<types::Uint>& indices) const;
+    bool checkDimension(types::Uint size) const;
+    bool hasSameGrid(const Grid &g) const;
+
+    private:
+    void copyRecursive( 
+        types::Uint directionIndex,
+        std::vector<types::Real>::const_iterator &oldIt, 
+        std::vector<types::Real>::iterator &newIt,  
+        const std::vector<types::Uint> &newCounts);
     void strideRecursive( 
         types::Uint directionIndex,
         std::vector<types::Real>::const_iterator &oldIt, 
@@ -52,22 +76,6 @@ struct Grid {
         const std::vector<types::Uint> &newCounts,
         const std::vector<types::Uint> &strides,
         const std::vector<types::Uint> &rests);
-    bool getNearestIndices(std::vector<types::Real>& coordinates, std::vector<types::Uint>& indices) const;
-    types::Real getNearestDataPoint(std::vector<types::Real>& coordinates) const;
-    types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
-    types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
-    types::Real getDataPoint(const std::vector<types::Uint>& indices) const; 
-    bool checkRange(const std::vector<types::Uint>& indices) const;
-    bool checkDimension(types::Uint size) const;
-    bool hasSameGrid(const Grid &g) const;
-    void resize(const std::vector<types::Uint>& incrementCounts);
-    void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
-    private:
-    void copyRecursive( 
-        types::Uint directionIndex,
-        std::vector<types::Real>::const_iterator &oldIt, 
-        std::vector<types::Real>::iterator &newIt,  
-        const std::vector<types::Uint> &newCounts);
 };
 
 }

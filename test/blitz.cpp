@@ -3,6 +3,39 @@
 #include <vector>
 #include <math.h>
 
+// Blitz++ has built-in stride support
+template<unsigned int dimension>
+void strideT(unsigned int size){
+    using namespace blitz;
+    TinyVector<unsigned int, dimension> v =size;
+    Array<double,dimension> data(v);
+    data = 1;
+    
+    TinyVector<int, dimension> low = fromStart;
+    TinyVector<int, dimension> high = toEnd;
+    TinyVector<int, dimension> stride = 2;
+    StridedDomain<dimension> sd(low, high, stride);
+    Array<double,dimension> strided = data(sd);
+    std::cout << strided;
+}
+void stride(unsigned int size){
+    using namespace blitz;
+
+    Array<double,1> vecArray(shape(size));
+    vecArray = tensor::i;
+
+    // Variant 1, form depends on dimension
+    Array<double,1> strided = vecArray(Range(fromStart, toEnd, 2));
+    std::cout << strided; // outputs 0 2 4 ...
+    
+    // Variant 2, extensible to n dimensions
+    StridedDomain<1> sd (shape(fromStart), shape(toEnd), 2);
+    Array<double,1> strided2 = vecArray(sd);
+    std::cout << strided2;
+
+    // Variant 3 = variant 2 extended to n dimensions
+    strideT<3>(size);
+}
 
 // Assigning a matrix to a formula depending on itself
 // using tensor
@@ -168,6 +201,7 @@ int main() {
 //  indexCalc(size);
 //  tensorRange(size);
 //  tensorSelf(size);
-    operatorDiv(size);
+//  operatorDiv(size);
+    stride(size);
     return 0;
 }

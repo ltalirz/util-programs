@@ -158,45 +158,48 @@ bool sum(std::vector<Real> biasDomain,
        std::cout << "\nBias " << *biasIt << " V\n--------------\n\n";
 
         Uint nToSum = 0;
-        for(Uint nSpin = 0; nSpin < spectrum.spins.size(); ++nSpin){
-            for(Uint nLevel = 0; nLevel < spectrum.spins[nSpin].levels.size(); ++nLevel){
-                Real level = spectrum.spins[nSpin].levels[nLevel];
+        for(Uint spin = 0; spin < spectrum.spins.size(); ++spin){
+            for(Uint level = 0; level < spectrum.spins[spin].levels.size(); ++level){
+                Real energy = spectrum.spins[spin].levels[level];
 
                 // If we need this level ...
-                if(level != 1e6 && level * *biasIt >= 0 && level * *biasIt <= *biasIt * *biasIt){
+                if(energy != 1e6 && energy * *biasIt >= 0 && energy * *biasIt <= *biasIt * *biasIt){
                     // Find cube file
                     bool found = false;
-                    std::list<formats::WfnCube>::const_iterator cubeIt = cubeList.begin(),
+                    std::list<formats::WfnCube>::const_iterator
+                        cubeIt = cubeList.begin(),
                         cubeEnd = cubeList.end();
                     while(cubeIt != cubeEnd){
-                        if(cubeIt->wfn == nLevel +1 && cubeIt->spin == nSpin +1){
+                        if(cubeIt->wfn == level +1 && cubeIt->spin == spin +1){
                             // If sum empty, take cube
                             if(sum.grid.data.size() == 0){
                                 sum = *cubeIt;
                                 sum.readCubeFile();
+                                sum.squareValues();
                             }
                             // Else perform summation
                             else{
                                 // Make local copy of cube file and then read
                                 formats::WfnCube temp = *cubeIt;
                                 temp.readCubeFile();
+                                temp.squareValues();
                                 sum += temp;
                             }
                             
                             // Mark level as used and exit cube search
                             found = true; ++nToSum;
-                            spectrum.spins[nSpin].levels[nLevel] = 1e6;
+                            spectrum.spins[spin].levels[level] = 1e6;
                             std::cout << "Added cube file for energy level "
-                                << nLevel << " at "
-                                << level << " eV\n";
+                                << level+1 << " at "
+                                << energy << " eV\n";
                             break;
                         }
                         else ++cubeIt;
 
                     }
                     if(!found) std::cout << "Missing cube file for energy level "
-                        << nLevel << " at "
-                        << level << " eV\n";
+                        << level+1 << " at "
+                        << energy << " eV\n";
                 }
             }
         }
@@ -255,7 +258,7 @@ bool write(formats::Cube & sum,
            Real bias) {
     types::String biasString = str(boost::format("%4.3f") % bias);
 
-    types::String description = "Sum of cube files for STM at bias ";
+    types::String description = "Sum of (squared) cube files for STM at bias ";
     description += biasString; 
     description += " V";
     sum.description = description;
@@ -264,13 +267,8 @@ bool write(formats::Cube & sum,
     fileName += biasString;
     fileName += ".cube";
 
-    // For Robertos make_STM, the cube file must be squared
-    // I would rather move this to make_STM, but until a reprogram it, we square
-    formats::Cube temp = sum;
-    temp.grid.squareValues();
-    temp.writeCubeFile(fileName);
-
-    std::cout << "Wrote file " << fileName << "\n";
+    std::cout << "Writing file " << fileName << "\n";
+    sum.writeCubeFile(fileName);
 
     return true;
 }

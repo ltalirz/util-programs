@@ -28,17 +28,21 @@ struct Cube {
 	bool writeCubeFile(types::String filename) const;
 	bool writeZProfile(types::String filename, types::String header) const;
 	bool writeZProfile(types::String filename) const;
+
+    void squareValues() { grid.squareValues(); }
+    void stride(std::vector<types::Uint> s) { grid.stride(s);}
     void averageXY(std::vector<types::Real> &data) const {grid.averageXY(data);}
     std::vector<types::Real> getZProfile() const;
     void addZProfile(types::Stream &stream, types::String header) const;
-	void print() const;
+    void getZPlane(types::Uint zIndex, std::vector<types::Real> &data){ 
+        grid.zPlane(zIndex, data);}
+
+    void print() const;
 	void addHeader(types::Stream &stream) const;
 	void addData(types::Stream &stream) const;
-	types::Uint countAtoms() const;
+
+    types::Uint countAtoms() const;
 	types::Uint countPoints() const;
-	types::Real getEnergy() const;
-
-
 };
 
 /**
