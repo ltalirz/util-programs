@@ -9,7 +9,7 @@
 #include <boost/filesystem/path.hpp>
 
 
-#include "io.h"
+#include "io.hpp"
 #include "types.hpp"
 
 namespace io {

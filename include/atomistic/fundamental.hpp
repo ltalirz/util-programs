@@ -1,11 +1,12 @@
-/*
- * fundamental.h
+/**
+ * @file fundamental.hpp
+ * Some classes describing fundamental atomistic concepts.
  */
-#ifndef ATOMISTIC_FUNDAMENTAL_H
-#define ATOMISTIC_FUNDAMENTAL_H
+#ifndef ATOMISTIC_FUNDAMENTAL_HPP
+#define ATOMISTIC_FUNDAMENTAL_HPP
 
 #include "types.hpp"
-#include "la.h"
+#include "la.hpp"
 
 namespace atomistic {
 
@@ -21,20 +22,30 @@ namespace atomistic {
 /**
  * An array of energy levels.
  */
-struct EnergyLevels {
-    static const types::Uint DEFAULT_N = 100;
+class EnergyLevels {
     std::vector<types::Real> levels;
     types::Real fermi;
 
-    EnergyLevels & operator*=(types::Real factor);
+public:
     EnergyLevels(std::vector<types::Real> levels, types::Real fermi);
     EnergyLevels() {};
+    void join(EnergyLevels e2);
+    
+    
+    EnergyLevels & operator*=(types::Real factor);
     void sort();
     types::Uint count() const;
+    types::Uint countOccupied() const;
     void print() const;
     void shift(types::Real deltaE);
     void setFermiZero();
+
     types::Real getLevel(types::Uint i) const;
+    const std::vector<types::Real> & getLevels() const { return levels; };
+    void setLevels(const std::vector<types::Real> l) { levels = l; };
+    types::Real getFermi() const { return fermi; }
+    types::Real setFermi(types::Real f) { fermi = f; }
+
 };
 
 /**
@@ -54,7 +65,7 @@ struct Spectrum {
     EnergyLevels sumSpins() const;
 };
 
-/** 
+/**
  * Representation of an atomic core in an atomistic simulation.
  */
 struct Atom {
@@ -66,13 +77,22 @@ struct Atom {
     Atom(std::vector<types::Real> coordinates,
          types::Uint number,
          types::Real charge) :
-            coordinates(coordinates), number(number), charge(charge) {};
-    Atom(std::vector<types::Real> coordinates): coordinates(coordinates){};
-    Atom(){ }
-    const std::vector<types::Real> &getCoordinates () const {return coordinates;}
-    types::Uint getNumber() const { return number; }
-    types::Real getCharge() const { return charge; }
-    types::String getSymbol() const { return symbol; }
+        coordinates(coordinates), number(number), charge(charge) {};
+    Atom(std::vector<types::Real> coordinates): coordinates(coordinates) {};
+    Atom() { }
+
+    const std::vector<types::Real> &getCoordinates () const {
+        return coordinates;
+    }
+    types::Uint getNumber() const {
+        return number;
+    }
+    types::Real getCharge() const {
+        return charge;
+    }
+    types::String getSymbol() const {
+        return symbol;
+    }
 };
 
 }

@@ -1,7 +1,7 @@
-#include "atomistic.h"
-#include "formats.h"
+#include "atomistic.hpp"
+#include "formats.hpp"
 #include "types.hpp"
-#include "io.h"
+#include "io.hpp"
 
 #include <iostream>
 #include <fstream>

@@ -10,8 +10,8 @@
 #include <iostream>
 #include <string>
 
-#include "atomistic.h"
-#include "io.h"
+#include "atomistic.hpp"
+#include "io.hpp"
 #include "types.hpp"
 
 using boost::spirit::ascii::space;

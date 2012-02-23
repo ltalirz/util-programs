@@ -5,7 +5,7 @@
 #define FORMATS_STM_H
 
 #include "types.hpp"
-#include "formats/cube.h"
+#include "formats/cube.hpp"
 
 namespace formats {
 

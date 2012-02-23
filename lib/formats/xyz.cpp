@@ -1,4 +1,4 @@
-#include "formats/xyz.h"
+#include "formats/xyz.hpp"
 
 
 namespace formats {

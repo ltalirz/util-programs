@@ -1,6 +1,6 @@
-#include "io.h"
-#include "atomistic.h"
-#include "types.h"
+#include "io.hpp"
+#include "atomistic.hpp"
+#include "types.hpp"
 
 #include <iostream>
 #include <vector>

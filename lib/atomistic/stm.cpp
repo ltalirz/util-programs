@@ -2,8 +2,8 @@
 #include <iostream>
 #include <string>
 
-#include "stm.h"
-#include "types.h"
+#include "stm.hpp"
+#include "types.hpp"
 
 namespace stm {
 

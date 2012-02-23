@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 
-#include "atomistic.h"
+#include "atomistic.hpp"
 
 using namespace std;
 

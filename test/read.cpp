@@ -8,8 +8,8 @@
 #include <boost/spirit/include/qi.hpp>
 #include <ctime>
 
-#include "types.h"
-#include "io.h"
+#include "types.hpp"
+#include "io.hpp"
 
 using namespace std;
 

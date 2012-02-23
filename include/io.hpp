@@ -1,8 +1,8 @@
-/*
- * io.h
+/**
+ * @file io.hpp
  */
-#ifndef IO_H
-#define IO_H
+#ifndef IO_HPP
+#define IO_HPP
 
 #include "types.hpp"
 

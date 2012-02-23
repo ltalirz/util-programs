@@ -8,10 +8,10 @@
 
 #include <fstream>
 
-#include "formats/cube.h"
-#include "atomistic/fundamental.h"
-#include "io.h"
-#include "la.h"
+#include "formats/cube.hpp"
+#include "atomistic/fundamental.hpp"
+#include "io.hpp"
+#include "la.hpp"
 #include "types.hpp"
 
 

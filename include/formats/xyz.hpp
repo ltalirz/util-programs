@@ -5,8 +5,8 @@
 #define FORMATS_XYZ_H
 
 #include "types.hpp"
-#include "la.h"
-#include "atomistic/fundamental.h"
+#include "la.hpp"
+#include "atomistic/fundamental.hpp"
 
 namespace formats {
 

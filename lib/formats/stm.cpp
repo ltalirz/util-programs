@@ -1,5 +1,5 @@
 
-#include "formats/cube.h"
+#include "formats/cube.hpp"
 #include "types.hpp"
 
 

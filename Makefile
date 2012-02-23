@@ -1,4 +1,4 @@
-include make-ipazia-login.sys
+include make-ddl03910.sys
 
 ##### Flags
 INCDIR     = include
@@ -15,8 +15,7 @@ ATOMISTIC  = $(addprefix atomistic/, fundamental)
 FORMATS    = $(addprefix formats/, cube xyz gnuplot)
 
 COMPONENTS = $(BASIC) $(ATOMISTIC) $(FORMATS)
-INCDEP     =  $(addprefix $(INCDIR)/, $(addsuffix .h, $(COMPONENTS)))
-INCDEP    +=  $(INCDIR)/types.hpp
+INCDEP     =  $(addprefix $(INCDIR)/, $(addsuffix .hpp, $(COMPONENTS)))
 LIBDEP     = $(addprefix $(LIBDIR)/, $(addsuffix .o, $(COMPONENTS)))
 
 ##### Programs
@@ -41,7 +40,7 @@ default: p
 clean:
 	find . -type f -name "*.o" -print | xargs rm
 
-$(LIBDIR)/%.o:: $(LIBDIR)/%.cpp $(INCDIR)/%.h 
+$(LIBDIR)/%.o:: $(LIBDIR)/%.cpp $(INCDIR)/%.hpp 
 	$(CC) -c $< -o $@ $(CFLAGS)
 # General programs might depend on headers of the library
 %.o:: %.cpp $(INCDEP)

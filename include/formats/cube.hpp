@@ -4,7 +4,7 @@
 #ifndef FORMATS_CUBE_H
 #define FORMATS_CUBE_H
 
-#include "atomistic/fundamental.h"
+#include "atomistic/fundamental.hpp"
 #include "types.hpp"
 
 

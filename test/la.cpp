@@ -1,5 +1,5 @@
-#include "la.h"
-#include "types.h"
+#include "la.hpp"
+#include "types.hpp"
 #include <vector>
 #include <iterator>
 

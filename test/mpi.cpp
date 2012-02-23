@@ -1,6 +1,6 @@
 #include <iostream>
 #include <vector>
-#include "mpi.h"
+#include "mpi.hpp"
 
 int main(int argc, char *argv[]) {
    

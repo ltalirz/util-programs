@@ -3,10 +3,10 @@
 
 #include <fstream>
 
-#include "atomistic/fundamental.h"
-#include "atomistic/units.h"
-#include "io.h"
-#include "la.h"
+#include "atomistic/fundamental.hpp"
+#include "atomistic/units.hpp"
+#include "io.hpp"
+#include "la.hpp"
 #include "types.hpp"
 
 
@@ -42,6 +42,24 @@ void EnergyLevels::sort() {
 Uint EnergyLevels::count() const {
     return this->levels.size();
 }
+
+Uint EnergyLevels::countOccupied() const {
+    Uint n = 0;
+    for(std::vector<Real>::const_iterator it = this->levels.begin();
+            it != this->levels.end(); it++) {
+        if(*it < fermi) ++n;
+    }
+    return n;
+}
+
+
+void EnergyLevels::join(EnergyLevels e2){
+        e2.shift(fermi - e2.fermi);
+        levels.insert( levels.end(), e2.levels.begin(), e2.levels.end());
+        this->sort();
+}
+
+    
 
 Real EnergyLevels::getLevel(Uint i) const {
     if( i > 0 && i <= this->levels.size() ){
@@ -100,17 +118,9 @@ EnergyLevels Spectrum::sumSpins() const {
     Real fermiSum = 0;
 
     for(std::vector<EnergyLevels>::const_iterator it = this->spins.begin(); it != this->spins.end(); it++) {
-        EnergyLevels temp = *it;
-        temp.setFermiZero();
-        e.levels.insert( e.levels.begin(), temp.levels.begin(), temp.levels.end());
-        fermiSum += temp.fermi;
+        e.join(*it);
         ++counter;
     }
-
-    Real newFermi = fermiSum/counter;
-    e.fermi = 0;
-    e.shift(newFermi);
-    e.sort();
 
     return e;
 }

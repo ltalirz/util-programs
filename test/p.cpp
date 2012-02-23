@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "atomistic.h"
+#include "atomistic.hpp"
 
 namespace at = atomistic;
 

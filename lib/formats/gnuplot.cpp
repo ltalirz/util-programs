@@ -1,4 +1,4 @@
-#include "formats/gnuplot.h"
+#include "formats/gnuplot.hpp"
 #include "types.hpp"
 #include <boost/format.hpp>
 
