@@ -59,6 +59,29 @@ struct WfnCube : public Cube {
     bool readDescription(types::String filename);
 };
 
+/**
+ * Specialized grid with several member functions for 3d
+ */
+struct CubeGrid : la::Grid {
+
+    void sumXY(std::vector<types::Real>& reduced) const;
+    void zPlane(types::Uint index, std::vector<types::Real> &plane);
+    void averageXY(std::vector<types::Real>& reduced) const;
+    /**
+     * In lack of a proper resampling method. No new values are calculated
+     */
+    void stride(types::Uint, types::Uint, types::Uint);
+    void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
+
+    types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
+    types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
+
+private:
+};
+
+
+
+
 }
 
 #endif

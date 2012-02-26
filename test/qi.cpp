@@ -27,6 +27,7 @@ using boost::spirit::qi::repeat;
 using boost::spirit::ascii::space_type;
 using boost::spirit::_val;
 using boost::spirit::_1;
+using boost::spirit::_a;
 
 using boost::phoenix::bind;
 using boost::phoenix::ref;
@@ -71,6 +72,26 @@ void toString() {
 }
 
 
+// Use class constructor
+// Does not compile, can only parse into existing object
+void readDoubles2() {
+	using namespace atomistic;
+    std::string s = "1 123.0 456 789";
+    std::vector<char> v(s.begin(), s.end());
+    std::vector<char>::const_iterator it = v.begin(), end = v.end();
+
+    Atom a = Atom();
+    std::vector<Atom> mouden;
+//    rule<std::vector<char>::const_iterator, Atom(), space_type> vectorRule =      
+//    phrase_parse(
+//        it,
+//        end,
+// int_ >> (*double_)[_val = bind(&Atom::Atom, Atom, _1)].
+//        space,
+//        mouden
+//    );
+//    std::cout << mouden[0].coordinates[0] << std::endl;
+}
 
 // Pass attribute to class member using phoenix::bind
 void readDoubles() {
@@ -152,8 +173,9 @@ int main() {
 //    readPhoenixVector();
 //    readAttribute();
 //    readPhoenixRule();
+      readDoubles2();
 //    readDoubles();
 //    toString();
-    parseNumbers();
+//    parseNumbers();
     return 0;
 }

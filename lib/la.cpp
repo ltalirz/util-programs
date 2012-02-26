@@ -21,15 +21,12 @@ Int round(Real r) {
     return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
 }
 
-Cell::Cell(const std::vector<Direction> &directions){
+Cell::Cell(const std::vector<Direction> &directions) {
     for(std::vector<Direction>::const_iterator dIt = directions.begin();
-            dIt != directions.end(); ++dIt){
-        std::vector<types::Real> cellVector;
-        for(std::vector<types::Real>::const_iterator vIt = dIt->incrementVector.begin();
-                vIt != dIt->incrementVector.end(); ++vIt){
-            cellVector.push_back(*vIt * dIt->incrementCount);
-        }
-        vectors.push_back(cellVector);
+            dIt != directions.end(); ++dIt) {
+        Direction temp = *dIt;
+        temp.scaleVector(temp.getIncrementCount());
+        vectors.push_back(temp.getIncrementVector());
     }
 }
 
@@ -39,39 +36,49 @@ Cell Grid::cell() const {
 
 bool Grid::hasSameGrid(const Grid &g) const {
     if(this->directions == g.directions &&
-       this->originVector == g.originVector)
+            this->originVector == g.originVector)
         return true;
     else return false;
 }
 
 
-bool operator==(const Direction& d1, const Direction& d2){
+bool operator==(const Direction& d1, const Direction& d2) {
     return (d1.incrementVector == d2.incrementVector &&
             d1.incrementCount == d2.incrementCount);
 }
 
-/**
- * Adapts Direction for given stride.
- */
-void Direction::stride(types::Uint s){
-        for(std::vector<types::Real>::iterator vIt = incrementVector.begin();
-                vIt != incrementVector.end(); ++vIt){
-            *vIt *= s;
-        }
-        if(incrementCount % s == 0) incrementCount = incrementCount/s;
-        else incrementCount = incrementCount/s + 1;
+bool Direction::checkRange(Uint index) const {
+    if(index < incrementCount) return true;
+#ifdef LA_STRICT
+    else throw std::range_error("Index out of range.");
+#else
+    else return false;
+#endif
 }
 
-const Grid & Grid::operator+=(const Grid &g){
+void Direction::stride(types::Uint s) {
+    this->scaleVector(s);
+    if(incrementCount % s == 0) incrementCount = incrementCount/s;
+    else incrementCount = incrementCount/s + 1;
+}
+
+void Direction::scaleVector(types::Real factor) {
+    for(std::vector<types::Real>::iterator vIt = incrementVector.begin();
+            vIt != incrementVector.end(); ++vIt) {
+        *vIt *= factor;
+    }
+}
+
+const Grid & Grid::operator+=(const Grid &g) {
     if(!this->hasSameGrid(g))
         throw types::runtimeError() <<
-            types::errinfo_runtime("Cannot add data on different grids.");
+                                    types::errinfo_runtime("Cannot add data on different grids.");
 
-    else if(this->data.size() == g.data.size() && this->data.size() > 0){
+    else if(this->data.size() == g.data.size() && this->data.size() > 0) {
         std::vector<Real>::iterator dataIt = data.begin(), dataEnd = data.end();
         std::vector<Real>::const_iterator gIt = g.data.begin();
 
-        while(dataIt != dataEnd){
+        while(dataIt != dataEnd) {
             *dataIt += *gIt;
             ++dataIt;
             ++gIt;
@@ -83,7 +90,7 @@ const Grid & Grid::operator+=(const Grid &g){
 /**
  * 3d wrapper for general stride function
  */
-void Grid::stride(types::Uint sX, types::Uint sY, types::Uint sZ){
+void Grid::stride(types::Uint sX, types::Uint sY, types::Uint sZ) {
     std::vector<Uint> tempStrides;
     tempStrides.push_back(sX);
     tempStrides.push_back(sY);
@@ -91,10 +98,10 @@ void Grid::stride(types::Uint sX, types::Uint sY, types::Uint sZ){
     stride(tempStrides);
 }
 
-void Grid::stride(std::vector<Uint> strides){
+void Grid::stride(std::vector<Uint> strides) {
     Uint dimension = strides.size();
     checkDimension(dimension);
-  
+
     // Get size for preallocation
     Uint size = 1;
     std::vector<Direction>::iterator dirIt = directions.begin();
@@ -102,67 +109,67 @@ void Grid::stride(std::vector<Uint> strides){
     std::vector<Uint> rests;
     std::vector<Uint> newCounts;
     std::vector<Direction> newDirections;
-    while(dirIt != directions.end()){
+    while(dirIt != directions.end()) {
         Direction d = *dirIt;
         d.stride(*sIt);
-        size *= d.incrementCount;
+        size *= d.getIncrementCount();
         newDirections.push_back(d);
-        newCounts.push_back(d.incrementCount);
-        
+        newCounts.push_back(d.getIncrementCount());
+
         // Handle "rest"
-        Uint r = dirIt->incrementCount % *sIt;
+        Uint r = dirIt->getIncrementCount() % *sIt;
         if(r > 0) rests.push_back(r);
         else rests.push_back(*sIt);
 
-	    ++dirIt;
+        ++dirIt;
         ++sIt;
     }
     std::vector<Real> newData;
     newData.resize(size);
-   
+
     // Starting with direction 0, the slowest direction
     std::vector<Real>::const_iterator dataIt = data.begin();
     std::vector<Real>::iterator newIt = newData.begin();
     this->strideRecursive(0, dataIt, newIt, newCounts, strides, rests);
-   
-   // Update data and incrementCounts
-   this->data = newData;
-   this->directions = newDirections;
+
+    // Update data and incrementCounts
+    this->data = newData;
+    this->directions = newDirections;
 }
 
-void Grid::strideRecursive( 
-        Uint directionIndex,
-        std::vector<Real>::const_iterator &oldIt, 
-        std::vector<Real>::iterator &newIt,  
-        const std::vector<Uint> &newCounts,
-        const std::vector<Uint> &strides,
-        const std::vector<Uint> &rests){
+void Grid::strideRecursive(
+    Uint directionIndex,
+    std::vector<Real>::const_iterator &oldIt,
+    std::vector<Real>::iterator &newIt,
+    const std::vector<Uint> &newCounts,
+    const std::vector<Uint> &strides,
+    const std::vector<Uint> &rests) {
 
     Uint dimension = strides.size();
 
     // If directionIndex is out of bounds, we are finished
     if( directionIndex >= dimension) return;
 
-    Uint oldCount = directions[directionIndex].incrementCount,
+    Uint oldCount = directions[directionIndex].getIncrementCount(),
          newCount = newCounts[directionIndex];
 
     Uint weight = 1;
-    for(Uint i = dimension -1; i > directionIndex; --i){
-        weight *= directions[i].incrementCount;
+    for(Uint i = dimension -1; i > directionIndex; --i) {
+        weight *= directions[i].getIncrementCount();
     }
     Uint stride = weight * strides[directionIndex];
     Uint rest = weight * rests[directionIndex];
 
     // If we are at the last dimension, we copy and move the iterators
-    if( directionIndex == dimension - 1){
-        for(Uint i = 0; i < newCount; ++i){
+    if( directionIndex == dimension - 1) {
+        for(Uint i = 0; i < newCount; ++i) {
             *newIt = *oldIt;
             ++newIt;
             oldIt += stride;
         }
     }
-    else{
-        for(Uint i = 0; i < newCount; ++i){
+    else {
+        for(Uint i = 0; i < newCount; ++i) {
             this->strideRecursive(directionIndex + 1, oldIt, newIt, newCounts, strides, rests);
             // The above already moved oldIt by 1xweigth
             oldIt += stride - weight;
@@ -182,7 +189,7 @@ void Grid::strideRecursive(
 /**
  * 3d wrapper for general resize function
  */
-void Grid::resize(types::Uint nX, types::Uint nY, types::Uint nZ){
+void Grid::resize(types::Uint nX, types::Uint nY, types::Uint nZ) {
     std::vector<Uint> tempCounts;
     tempCounts.push_back(nX);
     tempCounts.push_back(nY);
@@ -196,70 +203,71 @@ void Grid::resize(types::Uint nX, types::Uint nY, types::Uint nZ){
  * I should test the speed and maybe think about a specialization for 3d.
  * Maybe one can do the recursion during compile time via templates.
  */
-void Grid::resize(const std::vector<Uint>& incrementCounts){
+void Grid::resize(const std::vector<Uint>& incrementCounts) {
     Uint dimension = incrementCounts.size();
     checkDimension(dimension);
-  
+
     // Get size for preallocation
     Uint size = 1;
     std::vector<Uint>::const_iterator incIt = incrementCounts.begin(),
-        incEnd = incrementCounts.end();
-    while(incIt != incEnd){
+                                      incEnd = incrementCounts.end();
+    while(incIt != incEnd) {
         size *= *incIt;
-	    incIt++;
+        incIt++;
     }
     std::vector<Real> newData;
     newData.resize(size);
-   
+
     // Starting with direction 0, the slowest direction
     std::vector<Real>::const_iterator dataIt = data.begin();
     std::vector<Real>::iterator newIt = newData.begin();
     this->copyRecursive(0, dataIt, newIt, incrementCounts);
-   
-   // Update data and incrementCounts
-   this->data = newData;
-   std::vector<Direction>::iterator dirIt = directions.begin();
-   for(incIt = incrementCounts.begin(); incIt != incEnd; ++incIt, ++dirIt){
-      dirIt->incrementCount = *incIt;
-   }
+
+    // Update data and incrementCounts
+    this->data = newData;
+    std::vector<Direction>::iterator dirIt = directions.begin();
+    for(incIt = incrementCounts.begin(); incIt != incEnd; ++incIt, ++dirIt) {
+        Direction temp = Direction(dirIt->getIncrementVector(), *incIt);
+        *dirIt = temp;
+    }
 }
 
 /** Used by resize (recursively).
- * 
+ *
  * The *last* dimension is the fast one (as in 3d cube file format)
  */
-void Grid::copyRecursive( 
-        Uint directionIndex,
-        std::vector<Real>::const_iterator &oldIt, 
-        std::vector<Real>::iterator &newIt,  
-        const std::vector<Uint> &newCounts){
+void Grid::copyRecursive(
+    Uint directionIndex,
+    std::vector<Real>::const_iterator &oldIt,
+    std::vector<Real>::iterator &newIt,
+    const std::vector<Uint> &newCounts) {
 
     Uint dimension = newCounts.size();
 
     // If directionIndex is out of bounds, we are finished
     if( directionIndex >= dimension) return;
 
-    Uint oldCount = directions[directionIndex].incrementCount,
+    Uint oldCount = directions[directionIndex].getIncrementCount(),
          newCount = newCounts[directionIndex];
     Uint copyCount = std::min(oldCount, newCount),
          iterCount = std::max(oldCount, newCount);
-    
+
     // If we are at the last dimension, we copy and move the iterators
-    if( directionIndex == dimension - 1){
+    if( directionIndex == dimension - 1) {
         copy(oldIt, oldIt + copyCount, newIt);
         oldIt += oldCount;
-        newIt += newCount; 
+        newIt += newCount;
     }
-    // If we are not at the last dimension, we call recursively  
-    else{
+    // If we are not at the last dimension, we call recursively
+    else {
 
-        for(Uint i = 0; i < iterCount; ++i){
+        for(Uint i = 0; i < iterCount; ++i) {
             // If we need to copy...
-            if(i < copyCount){
+            if(i < copyCount) {
                 this->copyRecursive(directionIndex + 1, oldIt, newIt, newCounts);
             }
             // Else countNew or countOld is > countCopy and we just need to move iterators.
-            else{
+            else {
                 if(newCount > i)
                     newIt += newCount;
                 else
@@ -307,20 +315,16 @@ bool Grid::checkRange(const std::vector<Uint>& indices) const {
     std::vector<Uint>::const_iterator indexIt = indices.end(), indexEnd = indices.end();
     std::vector<Direction>::const_iterator dirIt = directions.begin();
     while(indexIt != indexEnd) {
-	// index may range from 0..incrementCount
-        if(*indexIt >= dirIt->incrementCount) {
-            throw std::range_error("Given index is out of range.");
-        }
+        if( !dirIt->checkRange(*indexIt) ) return false;
         ++indexIt;
         ++dirIt;
     }
-
     return true;
 }
 
 Real Grid::getNearestDataPoint(std::vector<Real>& coordinates) const {
-	std::vector<Uint> indices;
-this->getNearestIndices(coordinates, indices);
+    std::vector<Uint> indices;
+    this->getNearestIndices(coordinates, indices);
     return this->getDataPoint(indices);
 }
 
@@ -351,7 +355,7 @@ Real Grid::getDataPoint(Uint x, Uint y, Uint z) const {
 // assuming that they are ordered by increasing fastness
 Real Grid::getDataPoint(const std::vector<Uint>& indices) const {
     checkRange(indices);
-    
+
     // Note: end() points *after* the last item
     std::vector<Uint>::const_iterator indexIt = indices.end(), indexBegin = indices.begin();
     std::vector<Direction>::const_iterator dirIt = directions.end(), dirFirst = directions.begin();
@@ -363,7 +367,7 @@ Real Grid::getDataPoint(const std::vector<Uint>& indices) const {
     while(dirIt != dirFirst) {
         --dirIt;
         --indexIt;
-        weight *= dirIt->incrementCount;
+        weight *= dirIt->getIncrementCount();
         dataIt += (*indexIt) * weight;
     }
 
@@ -372,17 +376,18 @@ Real Grid::getDataPoint(const std::vector<Uint>& indices) const {
 
 // This works for nd grids
 bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vector<Uint>& indices) const {
+    Uint dim = cartesianCoordinates.size();
+    if (!checkDimension(dim)) return false;
 
     std::vector<Real> basisVectors;
     std::back_insert_iterator< std::vector<Real> > it(basisVectors);
     std::vector<Direction>::const_iterator dirIt = directions.begin(), dirEnd = directions.end();
     while(dirIt != dirEnd) {
-        copy(dirIt->incrementVector.begin(), dirIt->incrementVector.end(), it);
+        std::vector<Real> temp = dirIt->getIncrementVector();
+        copy(temp.begin(), temp.end(), it);
         ++dirIt;
     }
 
-    Uint dim = cartesianCoordinates.size();
-    checkDimension(dim);
 
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
@@ -392,7 +397,7 @@ bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vecto
     VectorXd gridEig = basisMatrix.inverse() * cartesianEig;
 
     std::vector<Real> gridStl(gridEig.data(), gridEig.data() + gridEig.size());
-    indices.clear(); 
+    indices.clear();
     for(std::vector<Real>::iterator it = gridStl.begin(); it != gridStl.end(); ++it) {
         indices.push_back(round(*it));
     }
@@ -400,10 +405,10 @@ bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vecto
     return true;
 }
 
-const Grid & Grid::operator*=(types::Real x){
+const Grid & Grid::operator*=(types::Real x) {
     std::vector<Real>::iterator dataIt = data.begin(),
-        dataEnd = data.end();
-    while(dataIt != dataEnd){
+                                dataEnd = data.end();
+    while(dataIt != dataEnd) {
         *dataIt *= x;
         ++dataIt;
     }
@@ -414,11 +419,11 @@ void Grid::zPlane(Uint zIndex, std::vector<types::Real> &plane) {
     using namespace blitz;
     std::vector<Real> test;
     const Array<Real,3> dataArray(
-            &data[0],
-            shape(directions[0].incrementCount, 
-                  directions[1].incrementCount,         
-                  directions[2].incrementCount),    
-            neverDeleteData);
+        &data[0],
+        shape(directions[0].getIncrementCount(),
+              directions[1].getIncrementCount(),
+              directions[2].getIncrementCount()),
+        neverDeleteData);
     Array<types::Real,2> blitzPlane =
         dataArray(Range::all(), Range::all(), zIndex);
     plane.assign(blitzPlane.begin(), blitzPlane.end());
@@ -443,7 +448,7 @@ void Grid::sumXY(std::vector<Real>& reduced) const {
      **/
 
     std::vector<Real>::const_iterator itData=data.begin(), endData=data.end();
-    reduced = std::vector<Real>(directions[2].incrementCount, 0.0);
+    reduced = std::vector<Real>(directions[2].getIncrementCount(), 0.0);
     std::vector<Real>::iterator itReduced=reduced.begin(), endReduced=reduced.end();
     // z is the fast index of the cube file, so we just need to sum
     // all of the z-compartments together
@@ -462,7 +467,7 @@ void Grid::sumXY(std::vector<Real>& reduced) const {
 
 void Grid::averageXY(std::vector<Real>& reduced) const {
     sumXY(reduced);
-    Uint points = countPoints() / directions[2].incrementCount;
+    Uint points = countPoints() / directions[2].getIncrementCount();
 
     std::vector<Real>::iterator it;
     for(it = reduced.begin(); it!= reduced.end(); ++it) {
@@ -475,7 +480,7 @@ Uint Grid::countPoints() const {
     std::vector<Direction>::const_iterator it;
     Uint points = 1;
     for(it = directions.begin(); it!= directions.end(); ++it) {
-        points *= it->incrementCount;
+        points *= it->getIncrementCount();
     }
     return points;
 }

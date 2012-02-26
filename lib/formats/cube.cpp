@@ -6,6 +6,8 @@
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/spirit/include/phoenix_operator.hpp>
 
+#include <blitz/array.h>
+
 #include <fstream>
 
 #include "formats/cube.hpp"
@@ -343,6 +345,113 @@ bool WfnCube::readCubeFile(String filename) {
         throw types::parseError() << types::errinfo_parse("The description of this cubefile does not contain information on the wave function.");
     return true;
 }
+
+
+/**
+ * 3d wrapper for general stride function
+ */
+void CubeGrid::stride(types::Uint sX, types::Uint sY, types::Uint sZ) {
+    std::vector<Uint> tempStrides;
+    tempStrides.push_back(sX);
+    tempStrides.push_back(sY);
+    tempStrides.push_back(sZ);
+    Grid::stride(tempStrides);
+}
+
+/**
+ * 3d wrapper for general resize function
+ */
+void CubeGrid::resize(types::Uint nX, types::Uint nY, types::Uint nZ) {
+    std::vector<Uint> tempCounts;
+    tempCounts.push_back(nX);
+    tempCounts.push_back(nY);
+    tempCounts.push_back(nZ);
+    Grid::resize(tempCounts);
+}
+
+// 3d wrapper for nd getNearestDataPoint
+Real CubeGrid::getNearestDataPoint(Real x, Real y, Real z) const {
+    std::vector<Real> coordinates;
+    coordinates.push_back(x);
+    coordinates.push_back(y);
+    coordinates.push_back(z);
+
+    return Grid::getNearestDataPoint(coordinates);
+}
+
+
+// 3d wrapper for nd getDataPoint
+Real CubeGrid::getDataPoint(Uint x, Uint y, Uint z) const {
+    std::vector<Uint> indices;
+    indices.push_back(x);
+    indices.push_back(y);
+    indices.push_back(z);
+
+    return Grid::getDataPoint(indices);
+}
+
+void CubeGrid::zPlane(Uint zIndex, std::vector<types::Real> &plane) {
+    using namespace blitz;
+    std::vector<Real> test;
+    const Array<Real,3> dataArray(
+        &data[0],
+        shape(directions[0].getIncrementCount(),
+              directions[1].getIncrementCount(),
+              directions[2].getIncrementCount()),
+        neverDeleteData);
+    Array<types::Real,2> blitzPlane =
+        dataArray(Range::all(), Range::all(), zIndex);
+    plane.assign(blitzPlane.begin(), blitzPlane.end());
+}
+
+
+/**
+ * Fill vector reduced with the sum over XY
+ */
+void CubeGrid::sumXY(std::vector<Real>& reduced) const {
+    /** The Blitz++ way
+    using namespace blitz;
+    namespace t = tensor;
+
+    Array<Real,3> dataArray(&data[0], shape(directions[0].incrementCount, directions[1].incrementCount, directions[2].incrementCount));
+    // reduce second dimension
+    Array<Real,2> reducedY(sum(dataArray(t::i,t::k,t::j), t::k));
+    //std::cout << reduceY;
+    Array<Real,1> reducedXY(sum(reducedY(t::j,t::i), t::j));
+    std::cout << reduceXY;
+
+     **/
+
+    std::vector<Real>::const_iterator itData=data.begin(), endData=data.end();
+    reduced = std::vector<Real>(directions[2].getIncrementCount(), 0.0);
+    std::vector<Real>::iterator itReduced=reduced.begin(), endReduced=reduced.end();
+    // z is the fast index of the cube file, so we just need to sum
+    // all of the z-compartments together
+    while(itData != endData) {
+        if(itReduced == endReduced) {
+            itReduced = reduced.begin();
+        }
+        *itReduced += *itData;
+        ++itData;
+        ++itReduced;
+    }
+
+
+}
+
+
+void CubeGrid::averageXY(std::vector<Real>& reduced) const {
+    sumXY(reduced);
+    Uint points = countPoints() / directions[2].getIncrementCount();
+
+    std::vector<Real>::iterator it;
+    for(it = reduced.begin(); it!= reduced.end(); ++it) {
+        *it /= points;
+    }
+
+}
+
+
 
 }
 

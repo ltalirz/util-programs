@@ -81,6 +81,8 @@ struct Atom {
     types::String getSymbol() const {
         return symbol;
     }
+
+    friend class Cube;
 };
 
 }
