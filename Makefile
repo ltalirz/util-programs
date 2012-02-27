@@ -11,7 +11,7 @@ CFLAGS += -I ./$(INCDIR)
 
 ##### Dependencies
 BASIC      = io la
-ATOMISTIC  = $(addprefix atomistic/, fundamental units)
+ATOMISTIC  = $(addprefix atomistic/, fundamental)
 FORMATS    = $(addprefix formats/, cp cp2k cube xyz gnuplot)
 
 COMPONENTS = $(BASIC) $(ATOMISTIC) $(FORMATS)
