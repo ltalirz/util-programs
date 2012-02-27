@@ -11,11 +11,11 @@ CFLAGS += -I ./$(INCDIR)
 
 ##### Dependencies
 BASIC      = io la
-ATOMISTIC  = $(addprefix atomistic/, fundamental)
+ATOMISTIC  = $(addprefix atomistic/, fundamental units)
 FORMATS    = $(addprefix formats/, cp cp2k cube xyz gnuplot)
 
 COMPONENTS = $(BASIC) $(ATOMISTIC) $(FORMATS)
-INCDEP     =  $(addprefix $(INCDIR)/, $(addsuffix .hpp, $(COMPONENTS)))
+INCDEP     = $(addprefix $(INCDIR)/, $(addsuffix .hpp, $(COMPONENTS)))
 LIBDEP     = $(addprefix $(LIBDIR)/, $(addsuffix .o, $(COMPONENTS)))
 
 ##### Programs
