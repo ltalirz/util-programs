@@ -10,9 +10,36 @@
 
 namespace formats {
 
+/**
+ * Specialized grid with several member functions for 3d
+ */
+struct CubeGrid : public la::Grid {
+
+    void sumXY(std::vector<types::Real>& reduced) const;
+    void zPlane(types::Uint index, std::vector<types::Real> &plane);
+    void averageXY(std::vector<types::Real>& reduced) const;
+    /**
+     * In lack of a proper resampling method. No new values are calculated
+     */
+    using la::Grid::stride;
+    void stride(types::Uint, types::Uint, types::Uint);
+    using la::Grid::resize;
+    void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
+
+    using la::Grid::getNearestDataPoint;
+    types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
+    using la::Grid::getDataPoint;
+    types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
+
+private:
+};
+
+
+
+
 struct Cube {
 	std::vector<atomistic::Atom> atoms;
-	la::Grid grid;
+	CubeGrid grid;
     types::String title;
     types::String description;
     types::String fileName;
@@ -43,6 +70,14 @@ struct Cube {
 
     types::Uint countAtoms() const;
 	types::Uint countPoints() const;
+
+    void setTitle(types::String t) { title=t;}
+    types::String getTitle() { return title;}
+    void setDescription(types::String d) { description=d;}
+    types::String getDescription() { return description;}
+    void setGrid(const CubeGrid &g) { grid = g;}
+    const CubeGrid & getGrid() { return grid;}
+
 };
 
 /**
@@ -59,25 +94,6 @@ struct WfnCube : public Cube {
     bool readDescription(types::String filename);
 };
 
-/**
- * Specialized grid with several member functions for 3d
- */
-struct CubeGrid : la::Grid {
-
-    void sumXY(std::vector<types::Real>& reduced) const;
-    void zPlane(types::Uint index, std::vector<types::Real> &plane);
-    void averageXY(std::vector<types::Real>& reduced) const;
-    /**
-     * In lack of a proper resampling method. No new values are calculated
-     */
-    void stride(types::Uint, types::Uint, types::Uint);
-    void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
-
-    types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
-    types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
-
-private:
-};
 
 
 

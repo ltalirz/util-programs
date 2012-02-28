@@ -355,7 +355,7 @@ void CubeGrid::stride(types::Uint sX, types::Uint sY, types::Uint sZ) {
     tempStrides.push_back(sX);
     tempStrides.push_back(sY);
     tempStrides.push_back(sZ);
-    Grid::stride(tempStrides);
+    stride(tempStrides);
 }
 
 /**
@@ -366,7 +366,7 @@ void CubeGrid::resize(types::Uint nX, types::Uint nY, types::Uint nZ) {
     tempCounts.push_back(nX);
     tempCounts.push_back(nY);
     tempCounts.push_back(nZ);
-    Grid::resize(tempCounts);
+    resize(tempCounts);
 }
 
 // 3d wrapper for nd getNearestDataPoint
@@ -376,7 +376,7 @@ Real CubeGrid::getNearestDataPoint(Real x, Real y, Real z) const {
     coordinates.push_back(y);
     coordinates.push_back(z);
 
-    return Grid::getNearestDataPoint(coordinates);
+    return getNearestDataPoint(coordinates);
 }
 
 
@@ -387,7 +387,7 @@ Real CubeGrid::getDataPoint(Uint x, Uint y, Uint z) const {
     indices.push_back(y);
     indices.push_back(z);
 
-    return Grid::getDataPoint(indices);
+    return getDataPoint(indices);
 }
 
 void CubeGrid::zPlane(Uint zIndex, std::vector<types::Real> &plane) {

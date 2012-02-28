@@ -43,10 +43,11 @@ public:
     const std::vector<types::Real> & getLevels() const { return levels; };
     void setLevels(const std::vector<types::Real> l) { levels = l; };
     types::Real getFermi() const { return fermi; }
-    types::Real setFermi(types::Real f) { fermi = f; }
+    void setFermi(types::Real f) { fermi = f; }
     bool rangeCheck(types::Uint i) const;
     types::Real getLevel(types::Uint i) const {
         if(rangeCheck(i)) return levels[i-1]; 
+        else return false;
     }
     void setLevel(types::Uint i, types::Real value) { 
         if(rangeCheck(i)) levels[i-1] = value; 

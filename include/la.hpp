@@ -69,21 +69,21 @@ struct Grid {
     void abs();
     types::Uint countPoints() const;
 
-    void sumXY(std::vector<types::Real>& reduced) const;
-    void zPlane(types::Uint index, std::vector<types::Real> &plane);
-    void averageXY(std::vector<types::Real>& reduced) const;
+//    void sumXY(std::vector<types::Real>& reduced) const;
+//    void zPlane(types::Uint index, std::vector<types::Real> &plane);
+//    void averageXY(std::vector<types::Real>& reduced) const;
     /**
      * In lack of a proper resampling method. No new values are calculated
      */
-    void stride(types::Uint, types::Uint, types::Uint);
+//    void stride(types::Uint, types::Uint, types::Uint);
     void stride(std::vector<types::Uint> stride);
     void resize(const std::vector<types::Uint>& incrementCounts);
-    void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
+//    void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
 
     bool getNearestIndices(std::vector<types::Real>& coordinates, std::vector<types::Uint>& indices) const;
     types::Real getNearestDataPoint(std::vector<types::Real>& coordinates) const;
-    types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
-    types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
+//    types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
+//    types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
     types::Real getDataPoint(const std::vector<types::Uint>& indices) const;
 
     bool checkRange(const std::vector<types::Uint>& indices) const;
