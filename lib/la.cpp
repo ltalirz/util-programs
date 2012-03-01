@@ -382,8 +382,16 @@ Uint Grid::countPoints() const {
     return points;
 }
 
-
-
+types::Real Cell::getExtent(types::Uint index){
+    std::vector<Real>::const_iterator it = vectors[index].begin(),
+       end = vectors[index].end(); 
+    types::Real sum = 0;
+    while(it != end){
+        sum += *it * *it;
+        ++it;
+    }
+    return std::sqrt(sum);
+}
 
 }
 

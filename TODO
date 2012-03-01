@@ -20,3 +20,8 @@
   functions there  (declared in formats/cube.h)
 - Sadly, there is no const way of mapping preexisting data with blitz (?)
   Think about a solution for that
+
+- Do transition to reading from configuration file instead of command
+  line parameters (see the description on boost_program_options
+
+- Change incrementCount ind la::Direction to pointCount or somthing similar

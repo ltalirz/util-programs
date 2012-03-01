@@ -10,7 +10,7 @@ CFLAGS = -O1
 endif
 
 HOME=/home/tal127
-BOOST=$(HOME)/apps/boost/boost_1_48_0
+BOOST=$(HOME)/libs/boost/boost_1_48_0
 
 
 CFLAGS += -I $(BOOST)/ -I $(HOME)/local/include

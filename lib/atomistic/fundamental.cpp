@@ -90,6 +90,41 @@ void EnergyLevels::setFermiZero() {
 }
 
 
+//LDOS::LDOS(
+//        const std::vector< std::vector<Real> > &levels,
+//        Real eMin,
+//        Ream eMax,
+//        Real deltaE,
+//        Real broadening){
+//
+//    // Setup grid
+//    Real e = eMin;
+//    std::vector<Real> energies;
+//    for(Real e = eMin; e <= eMax; e += deltaE){
+//        energies.push_back(e);
+//    }
+//    std>>vector<Real> densities(energies.size(), 0.0);
+//
+//    // Gaussian stuff
+//    // \$ \frac{1}{\sigma \sqrt{2\pi} e^{-\frac{(x-\mu)^2}{2\sigma^2}} \$
+//    // = a e^{c(x-b)^2}
+//    types::Real a = 1.0/(broadening * std::sqrt(2 * M_PI));
+//    types::Real c = 1.0/(2 * broadening * broadening);
+//
+//
+//    std::vector< std::vector<Real > >::const_iterator levelIt = levels.begin(),
+//        levelEnd = levels.end;
+//    while(levelIt != levelEnd){
+//        std::vector<Real>::const_iterator eIt = energies.begin(),
+//            eEnd = energies.end();
+//        for(Uint i = 0; i < energies.size(); ++i){
+//            densities[i] += *levelIt[1] * a * std::exp(c * (energies[i]-*levelIt[0]));
+//        }
+//        ++levelIt;
+//    }
+//
+//    this->densities = densities;
+//    this->energies = energies;
+//}
 
 }
-

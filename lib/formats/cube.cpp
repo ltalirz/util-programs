@@ -60,9 +60,13 @@ bool Cube::readCubeFile(String filename) {
     using boost::phoenix::bind;
 
     using atomistic::Atom;
+
     types::Binary content;
     io::readBinary(filename, content);
     this->fileName = filename;
+    this->atoms.clear();
+    this->grid = CubeGrid();
+
     typedef types::Binary::const_iterator binIt;
     binIt it = content.begin(), end = content.end();
 
@@ -451,7 +455,22 @@ void CubeGrid::averageXY(std::vector<Real>& reduced) const {
 
 }
 
+Real Cube::topZCoordinate(){
+    
+    // Get highest z coordinate
+    std::vector< atomistic::Atom >::const_iterator it = atoms.begin(),
+        end = atoms.end();
+    types::Real zTop = it->coordinates[2];
+    ++it;
+    while(it != end) {
+        if( it->coordinates[2] > zTop ) {
+            zTop = it->coordinates[2];
+        }
+        ++it;
+    }
 
+    return zTop;
+}
 
 }
 

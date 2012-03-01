@@ -8,10 +8,14 @@ else
 CFLAGS = -O1
 endif
 
-CFLAGS += -I ~/apps/boost/boost_1_48_0/ -I ~/local/include
+HOME    = /home/tal127
+BOOST   = $(HOME)/packages/boost/boost_1_48_0
+
+
+CFLAGS += -I $(BOOST)/ -I $(HOME)/local/include
 
 # ipazia has only dynamic libstd++ !
 LFLAGS  = -pthread
-LFLAGS += -L ~/apps/boost/boost_1_48_0/stage/lib/
-LFLAGS += -L ~/local/lib/
-LFLAGS += -lboost_program_options -lboost_regex -lboost_filesystem -lfftw3 -lm -lblitz
+LFLAGS += -L $(BOOST)/stage/lib/
+LFLAGS += -L $(HOME)/local/lib/
+LFLAGS += -lboost_program_options -lboost_regex -lboost_system -lboost_filesystem -lfftw3 -lm -lblitz

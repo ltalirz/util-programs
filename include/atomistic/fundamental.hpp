@@ -86,5 +86,16 @@ struct Atom {
     friend class Cube;
 };
 
+
+//class LDOS {
+//    private:
+//        std::vector< types::Real > energies;
+//        std::vector< types::Real > densities;
+//    public:
+//        LDOS(const std::vector< std::vector<types::Real> > & levels, types::Real broadening);
+//};
+
+
+
 }
 #endif

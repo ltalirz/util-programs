@@ -8,6 +8,7 @@
 #include "formats/cp.hpp"
 #include "formats/cube.hpp"
 #include "formats/gnuplot.hpp"
+#include "formats/stm.hpp"
 #include "formats/xyz.hpp"
     
 #endif

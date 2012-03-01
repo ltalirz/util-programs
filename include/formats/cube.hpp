@@ -63,6 +63,7 @@ struct Cube {
     void addZProfile(types::Stream &stream, types::String header) const;
     void getZPlane(types::Uint zIndex, std::vector<types::Real> &data){ 
         grid.zPlane(zIndex, data);}
+    types::Real topZCoordinate();
 
     void print() const;
 	void addHeader(types::Stream &stream) const;
@@ -92,6 +93,9 @@ struct WfnCube : public Cube {
     bool readCubeFile(types::String filename);
     bool readCubeFile();
     bool readDescription(types::String filename);
+
+    void setEnergy(types::Real e){ energy = e; }
+    types::Real getEnergy() { return energy; }
 };
 
 
