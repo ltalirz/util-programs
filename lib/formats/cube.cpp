@@ -455,7 +455,7 @@ void CubeGrid::averageXY(std::vector<Real>& reduced) const {
 
 }
 
-Real Cube::topZCoordinate(){
+Real Cube::topZCoordinate() const{
     
     // Get highest z coordinate
     std::vector< atomistic::Atom >::const_iterator it = atoms.begin(),
@@ -470,6 +470,40 @@ Real Cube::topZCoordinate(){
     }
 
     return zTop;
+}
+
+void CubeGrid::zIsoSurface(
+        types::Real isoValue, 
+        std::vector<types::Real> &surface) const {
+
+    Uint zPoints = directions[2].getIncrementCount();
+    Real dZ = directions[2].getIncrementVector()[2];
+    Uint planePoints = directions[0].getIncrementCount()
+        * directions[1].getIncrementCount();
+    surface.reserve(zPoints);
+    
+    
+    std::vector<Real>::const_iterator dataIt, dataStop;
+    for(Uint p = 0; p < planePoints; ++p){
+        // Start from high z, going down
+        dataIt = data.begin();
+        dataIt += (p+1) * planePoints - 1;
+        dataStop = data.begin();
+        dataStop += p * planePoints;
+        Uint z = zPoints -1; 
+        while(dataIt != dataStop){
+            // As soon as we are below iso...
+            if(*dataIt < isoValue){
+                // We need the z-height
+                surface.push_back(z * dZ);
+                break;
+            }
+            --dataIt;
+            --z;
+        }
+        if(dataIt == dataStop) throw types::runtimeError() 
+                    << types::errinfo_runtime("Missed an isosurface value");
+    }
 }
 
 }

@@ -159,49 +159,6 @@ bool prepare(types::String levelFileName,
 }
 
 
-bool parse(int ac, char* av[], po::variables_map& vm) {
-
-    // Declare regular options
-    po::options_description desc("Allowed options");
-    desc.add_options()
-    ("help,h", "produce help message")
-    ("version,v", "print version information")
-    ("levels", po::value<types::String>(), "CP2K output file containing energy levels")
-    ("cubelist", po::value<types::String>(), "file with list of wavefunction cubes you wish to extrapolate")
-    ("hartree", po::value<types::String>(), "cube file of hartree potential from CP2K")
-    ("start", po::value<double>(), "distance between extrapolation plane and outermost atom in a.u.")
-    ("width", po::value<double>(), "length of extrapolation in a.u.")
-    ;
-
-    // Register positional options
-    po::positional_options_description p;
-    p	.add("levels", 1)
-    .add("cubelist", 1)
-    .add("hartree", 1)
-    .add("start", 1)
-    .add("width", 1);
-
-    // Parse
-    po::store(po::command_line_parser(ac,av).
-              options(desc).positional(p).run(), vm);
-    po::notify(vm);
-
-    // Display help message
-    if (	vm.count("help") ||
-            !vm.count("levels") ||
-            !vm.count("hartree") ||
-            !vm.count("start") ||
-            !vm.count("width")	) {
-        std::cout << "Usage: extrapolate [options]\n";
-        std::cout << desc << "\n";
-    } else if (vm.count("version")) {
-        std::cout << "Feb 1st 2012\n";
-    } else {
-        return true;
-    }
-
-    return false;
-}
 
 
 bool extrapolate(
@@ -337,3 +294,54 @@ bool extrapolate(
 
     return true;
 }
+
+
+bool parse(int ac, char* av[], po::variables_map& vm) {
+    types::String input_file;
+    // Declare regular options
+    po::options_description desc("Allowed options");
+    desc.add_options()
+    ("help,h", "produce help message")
+    ("version,v", "print version information")
+    ("input-file,i", po::value<types::String>(&input_file), "Input file specifying all or several of the following options")
+     ("levels", po::value<types::String>(), "CP2K output file containing energy levels")
+    ("cubelist", po::value<types::String>(), "file with list of wavefunction cubes you wish to extrapolate")
+    ("hartree", po::value<types::String>(), "cube file of hartree potential from CP2K")
+    ("start", po::value<double>(), "distance between extrapolation plane and outermost atom in a.u.")
+    ("width", po::value<double>(), "length of extrapolation in a.u.")
+    ;
+
+    // Register positional options
+    po::positional_options_description p;
+    p	.add("input-file", -1);
+
+    // Parse
+    po::store(po::command_line_parser(ac,av).
+              options(desc).positional(p).run(), vm);
+    po::notify(vm);
+
+    // If specified, try to parse conig file
+    if (vm.count("input-file")){
+        std::ifstream ifs(input_file.c_str());
+        if(!ifs) throw types::fileAccessError() << boost::errinfo_file_name(input_file);
+        store(parse_config_file(ifs, desc), vm);
+        notify(vm);
+    }
+
+    // Display help message
+    if (	vm.count("help") ||
+            !vm.count("levels") ||
+            !vm.count("hartree") ||
+            !vm.count("start") ||
+            !vm.count("width")	) {
+        std::cout << "Usage: extrapolate [options]\n";
+        std::cout << desc << "\n";
+    } else if (vm.count("version")) {
+        std::cout << "Mar 1st 2012\n";
+    } else {
+        return true;
+    }
+
+    return false;
+}
+

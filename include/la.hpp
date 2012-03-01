@@ -71,6 +71,7 @@ struct Grid {
     void squareValues();
     void sqrt();
     void abs();
+    types::Real sum() const;
     types::Uint countPoints() const;
 
     /**

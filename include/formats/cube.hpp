@@ -18,6 +18,7 @@ struct CubeGrid : public la::Grid {
     void sumXY(std::vector<types::Real>& reduced) const;
     void zPlane(types::Uint index, std::vector<types::Real> &plane);
     void averageXY(std::vector<types::Real>& reduced) const;
+    void zIsoSurface(types::Real isoValue, std::vector<types::Real> &data) const; 
     /**
      * In lack of a proper resampling method. No new values are calculated
      */
@@ -63,7 +64,9 @@ struct Cube {
     void addZProfile(types::Stream &stream, types::String header) const;
     void getZPlane(types::Uint zIndex, std::vector<types::Real> &data){ 
         grid.zPlane(zIndex, data);}
-    types::Real topZCoordinate();
+    types::Real topZCoordinate() const;
+    void getZIsoSurface(types::Real isoValue, std::vector<types::Real> &data){ 
+        grid.zIsoSurface(isoValue, data);}
 
     void print() const;
 	void addHeader(types::Stream &stream) const;

@@ -392,6 +392,17 @@ types::Real Cell::getExtent(types::Uint index){
     }
     return std::sqrt(sum);
 }
+    
+types::Real Grid::sum() const{
+    std::vector<Real>::const_iterator it = data.begin(),
+        end = data.end();
+    Real sum = 0;
+    while(it != end){
+        sum += *it;
+        ++it;
+    }
+    return sum;
+}
 
 }
 

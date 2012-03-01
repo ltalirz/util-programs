@@ -23,7 +23,7 @@ class STS2d : public formats::Cube {
 
     public:
         STS2d(
-                std::list< formats::WfnCube > &cubes,
+                const std::list< formats::WfnCube > &cubes,
                 types::Real height,
                 types::Real eMin,
                 types::Real eMax,
@@ -41,16 +41,20 @@ class STS2d : public formats::Cube {
  * STM image
  * List of WfnCubes and bias
  */
-class StmImage {
+class StmCube : public formats::Cube {
     private:
-        std::vector<WfnCube> cubes;
+        std::vector<WfnCube> levels;
         types::Real bias;
+        types::Real isoLevel;
+        std::vector<types::Real> stm;
 
     public:
-        StmImage(types::Real b) : bias(b) {};
-        StmImage() {};
-        bool findCubes(std::vector<WfnCube> &list);
+//        StmImage(types::Real b) : bias(b) {};
+        StmCube() {};
+//        bool findCubes(std::vector<WfnCube> &list);
         types::Real getBias() { return bias; }
+        void setIsoLevel(types::Real isoValue); 
+        bool writeIgorFile(types::String fileName) const;
 };
 
 }

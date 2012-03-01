@@ -5,21 +5,11 @@
 
 #include <iostream>
 #include <fstream>
-#include <iterator>
 #include <list>
 #include <vector>
-#include <algorithm>
 #include <string>
 
-#include <boost/format.hpp>
 #include <boost/program_options.hpp>
-
-#include <boost/spirit/include/qi_core.hpp>
-#include <boost/spirit/include/qi_eol.hpp>
-
-#include <blitz/array.h>
-#include <fftw3.h>
-
 
 #include <ctime>
 time_t t = clock();
@@ -29,17 +19,12 @@ namespace at = atomistic;
 namespace stm = formats::stm;
 using namespace types;
 
+/***********************************************
+  Declarations
+***********************************************/
+
 // Returns true, if command line arguments parse ok
 bool parse(int ac, char* av[], po::variables_map& vm);
-
-// Inserts info about energy levels in cube file descriptions
-bool insertEnergyLevels( 
-        std::list<formats::WfnCube> &cubeList,
-        formats::cp2k::Spectrum spectrum,
-        types::Real eMin,
-        types::Real eMax,
-        types::Real broadening);
-
 
 // Reads and parses the lists suppiled by command line
 // and calls sum
@@ -52,6 +37,17 @@ bool readLists(types::String levelFileName,
              types::Real broadening,
              types::Real height);
 
+// Inserts info about energy levels in cube file descriptions
+bool insertEnergyLevels( 
+        std::list<formats::WfnCube> &cubeList,
+        formats::cp2k::Spectrum spectrum,
+        types::Real eMin,
+        types::Real eMax,
+        types::Real broadening);
+
+/***********************************************
+  Implementations
+***********************************************/
 
 int main(int ac, char* av[]) {
 
@@ -118,6 +114,7 @@ bool readLists(types::String levelFileName,
         eMax,
         deltaE,
         broadening);
+    std::cout << "Writing STS cube file " << outFileName << "\n";
     mySts.writeCubeFile(outFileName);
     
     return true;
@@ -132,6 +129,7 @@ bool insertEnergyLevels(
         types::Real broadening){
 
     std::list<formats::WfnCube> newCubeList;
+    // We also take levels that are sigma*3 away from the border
     types::Real delta = 3 * broadening;
 
     for(Uint spin = 0; spin < spectrum.spins.size(); ++spin){
@@ -197,8 +195,7 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
 
     // Register positional options
     po::positional_options_description p;
-    p	.add("input-file",-1)
-    ;
+    p.add("input-file",-1);
 
     // Parse
     po::store(po::command_line_parser(ac,av).
@@ -227,6 +224,8 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
         std::cout << "Mar 1st 2012\n";
+    } else if (vm["emin"].as< Real >() > vm["emax"].as< Real >()){
+        std::cout << "Error: emin > emax\n";
     } else {
         return true;
     }

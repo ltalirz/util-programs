@@ -25,3 +25,7 @@
   line parameters (see the description on boost_program_options
 
 - Change incrementCount ind la::Direction to pointCount or somthing similar
+
+- Change STS2d to StsCube (?) because thats what it is
+
+- replace Grid::sum() by Kahan sum

@@ -19,7 +19,7 @@ INCDEP     = $(addprefix $(INCDIR)/, $(addsuffix .hpp, $(COMPONENTS)))
 LIBDEP     = $(addprefix $(LIBDIR)/, $(addsuffix .o, $(COMPONENTS)))
 
 ##### Programs
-STMPROGS   = extrapolate sumbias sts
+STMPROGS   = extrapolate sumbias sts stm
 UTILPROGS  = cubestride cubescale cubesquare cuberoot cubeabs
 
 

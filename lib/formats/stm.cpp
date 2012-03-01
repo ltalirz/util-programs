@@ -1,6 +1,7 @@
 #include "formats/cube.hpp"
 #include "formats/stm.hpp"
 #include "types.hpp"
+#include "io.hpp"
 #include <cmath>
 
 #include <boost/format.hpp>
@@ -11,40 +12,29 @@ namespace stm {
 using namespace types;
 
 STS2d::STS2d(
-                std::list< formats::WfnCube > &cubes,
-                types::Real height,
-                types::Real eMin,
-                types::Real eMax,
-                types::Real deltaE,
-                types::Real broadening){
+        const std::list< formats::WfnCube > &cubes,
+        types::Real height,
+        types::Real eMin,
+        types::Real eMax,
+        types::Real deltaE,
+        types::Real broadening){
 
-    std::list< formats::WfnCube >::iterator
+    std::list< formats::WfnCube >::const_iterator
         cubeIt = cubes.begin(),
-        cubeEnd = cubes.end();
+    cubeEnd = cubes.end();
 
 
+    // Get atoms and proper grid
+    this->fileName = cubeIt->fileName;
+    this->readCubeFile();
 
-
-    // Adapt 3rd dimension for energy
-    this->broadening = broadening;
-    cubeIt->readCubeFile();
-    grid = cubeIt->grid;
-    this->grid.originVector[2] = eMin;
-    std::vector<Real> v = grid.directions[2].getIncrementVector();
-    v[2] = deltaE;
-    grid.directions[2] = la::Direction(v, (unsigned int) ((eMax - eMin)/deltaE) + 1);
-
-    grid.data = std::vector<Real>(grid.countPoints(), 0.0);
-    atoms = cubeIt->atoms;
-
-    
     // Get z index of STS plane
     std::vector<types::Real> tempvector;
     tempvector.push_back(0);
     tempvector.push_back(0);
-    tempvector.push_back(cubeIt->topZCoordinate() + height);
+    tempvector.push_back(this->topZCoordinate() + height);
     std::vector<types::Uint> indices;
-    cubeIt->grid.getNearestIndices(tempvector, indices);
+    this->grid.getNearestIndices(tempvector, indices);
     types::Uint zIndex = indices[2];
     std::cout << "STS will be performed at z-index " 
         << zIndex << "\n";
@@ -54,11 +44,26 @@ STS2d::STS2d(
     this->description  = str(boost::format(
                 "Range [%1.3d V,%1.3d V], delta-e %1.4d, sigma %1.4d")
                 % eMin % eMax % deltaE % broadening);
-    
+
+
+    // Adjust z dimension for energy
+    Uint newIncrementCount =(unsigned int) ((eMax - eMin)/deltaE) + 1;
+    // Want to keep old z extent
+    this->grid.directions[2].scaleVector(
+            Real(grid.directions[2].getIncrementCount())/
+            Real(newIncrementCount));
+    this->grid.directions[2] = 
+        la::Direction(grid.directions[2].getIncrementVector(),
+                newIncrementCount);
+    this->grid.originVector[2] = eMin;
+    grid.data = std::vector<Real>(grid.countPoints(), 0.0);
+    this->broadening = broadening;
+
     // Get all necessary planes
+    formats::WfnCube tempCube;
     while(cubeIt != cubeEnd){
         std::cout<< "Processing " << cubeIt->fileName << "\n";
-        formats::WfnCube tempCube = *cubeIt;
+        tempCube = *cubeIt;
         tempCube.readCubeFile();
         tempCube.squareValues();
         std::vector<Real> tempPlane;
@@ -67,13 +72,11 @@ STS2d::STS2d(
         addLevel(tempPlane, cubeIt->energy); 
         ++cubeIt;
     }
+        
+    std::cout<< "Done processing cube files...\n\n";
 
-    // Autoscale (otherwise too small for vmd)
-    grid *= 1/grid.data[0];
-    la::Cell c = grid.cell();
-    Real wantExtent = (c.getExtent(0) + c.getExtent(1))/2.0;
-    
-    grid.directions[2].scaleVector(wantExtent/c.getExtent(2));
+    // Normalize sum to 1
+    grid *= 1.0/grid.sum();
 }
 
 
@@ -120,6 +123,29 @@ Real STS2d::getEMax(){
 
 Real STS2d::getDeltaE(){
     return grid.directions[2].getIncrementVector()[2];
+}
+
+void StmCube::setIsoLevel(types::Real isoValue){
+    getZIsoSurface(isoValue, stm);
+    this->isoLevel = isoValue;
+}
+
+bool StmCube::writeIgorFile(String fileName) const {
+    Uint nX = grid.directions[0].getIncrementCount();
+    Uint nY = grid.directions[1].getIncrementCount();
+    std::vector<Real>::const_iterator stmIt = stm.begin();
+
+    Stream result = "";
+    for(Uint x = 0; x<nX; ++x){
+        for(Uint y=0; y<nY; ++y){
+            result += str(boost::format("%12.6e") % *stmIt);
+            result += " ";
+            ++stmIt;
+        }
+        result += "\n";
+    }
+
+    return io::writeStream(fileName, result);
 }
 
 
