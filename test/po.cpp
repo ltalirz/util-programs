@@ -5,6 +5,16 @@ namespace po = boost::program_options;
 #include <fstream>
 #include <iterator>
 
+template<typename T>
+std::ostream& operator<<(std::ostream &out, std::vector<T> stuff){
+    typename std::vector<T>::const_iterator it = stuff.begin(),
+        end = stuff.end();
+    while(it != end){
+        out << *it << "\n";
+        ++it;
+    }
+    return out;
+}
 
 // Reading from configuration file (default: po.inp)
 void configTest(int ac, char* av[]){
@@ -18,6 +28,7 @@ void configTest(int ac, char* av[]){
              "name of a file of a configuration.")
             ("test-string", po::value< std::string >(), "test option")
             ("test-double", po::value< double >(), "test option")
+            ("test-vector", po::value< std::vector< double> >()->multitoken(), "test option")
             ("test-uint", po::value< unsigned int >(), "test option")
             ;
     
@@ -38,6 +49,8 @@ void configTest(int ac, char* av[]){
             vm["test-string"].as< std::string >() << " specified\n";
         if (vm.count("test-uint")) std::cout << "Test option " << 
             vm["test-uint"].as< unsigned int >() << " specified\n";
+        if (vm.count("test-vector")) std::cout << "Test option " << 
+            vm["test-vector"].as< std::vector< double > >() << " specified\n";
         if (vm.count("test-double")) std::cout << "Test option " << 
             vm["test-double"].as< double>() << " specified\n";
 }

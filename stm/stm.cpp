@@ -64,7 +64,7 @@ bool doStm(types::String cubeListFileName, std::vector<Real> isoValues){
 
     types::String fileName;
 
-    while (getline(cubeListFile, fileName)) {
+    while(getline(cubeListFile, fileName)) {
         stm::StmCube temp = stm::StmCube();
         std::cout << "Reading cube file " << fileName << "\n";
         temp.readCubeFile(fileName);
@@ -72,16 +72,13 @@ bool doStm(types::String cubeListFileName, std::vector<Real> isoValues){
         std::vector<Real>::const_iterator isoIt = isoValues.begin(),
             isoEnd = isoValues.end();
         while(isoIt != isoEnd){
-            std::cout << *isoIt << std::endl;
             temp.setIsoLevel(*isoIt);
             types::String igorFileName = io::getFileName(fileName);
-            igorFileName += str(boost::format(".%3.2e.igor") % *isoIt);
-            std::cout << "Writing cube file for isolevel " << *isoIt << "\n";
+            igorFileName += str(boost::format(".%2.1e.igor") % *isoIt);
+            std::cout << "Writing " << igorFileName << "\n";
             temp.writeIgorFile(igorFileName);
             ++isoIt;
         } 
-
-        std::cout << "Done with file " << fileName << "\n";
 
     }
     cubeListFile.close();

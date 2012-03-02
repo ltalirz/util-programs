@@ -16,24 +16,41 @@ namespace stm {
  * STS in 2d
  * 
  */
-class STS2d : public formats::Cube {
+class StsCube : public formats::Cube {
     private:
-        //std::vector< formats::WfnCube > &levels;
+        std::list< formats::WfnCube > levels;
+        types::Real height;
+        types::Uint zIndex;
+        types::Real eMin;
+        types::Real eMax;
+        types::Real deltaE;
         types::Real broadening;
+       
+        bool initialize(); 
+        void addLevel(
+                const std::vector<types::Real> &plane,
+                types::Real energy);
 
     public:
-        STS2d(
-                const std::list< formats::WfnCube > &cubes,
-                types::Real height,
-                types::Real eMin,
-                types::Real eMax,
-                types::Real deltaE,
-                types::Real broadening);
-       void addLevel(const std::vector<types::Real> &plane,
-               types::Real energy);
-       types::Real getEMin();
-       types::Real getEMax();
-       types::Real getDeltaE();
+        StsCube(
+            const std::list< formats::WfnCube > &levels,
+            types::Real height,
+            types::Real eMin,
+            types::Real eMax,
+            types::Real deltaE,
+            types::Real broadening) :
+            levels(levels),
+            height(height),
+            eMin(eMin), 
+            eMax(eMax), 
+            deltaE(deltaE), 
+            broadening(broadening)
+    {       calculate();             }
+
+        bool calculate();
+        types::Real getEMin();
+        types::Real getEMax();
+        types::Real getDeltaE();
 };
     
     

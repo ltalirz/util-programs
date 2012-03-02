@@ -11,19 +11,17 @@ namespace stm {
 
 using namespace types;
 
-STS2d::STS2d(
-        const std::list< formats::WfnCube > &cubes,
-        types::Real height,
-        types::Real eMin,
-        types::Real eMax,
-        types::Real deltaE,
-        types::Real broadening){
+bool StsCube::initialize(){
+    if(levels.size() == 0){
+        std::cout 
+            << "No states for given energy window. STS will not be performed.";
+        return false;
+    }
 
+    // Steal from first cube file
     std::list< formats::WfnCube >::const_iterator
-        cubeIt = cubes.begin(),
-    cubeEnd = cubes.end();
-
-
+        cubeIt = levels.begin();
+    
     // Get atoms and proper grid
     this->fileName = cubeIt->fileName;
     this->readCubeFile();
@@ -35,7 +33,7 @@ STS2d::STS2d(
     tempvector.push_back(this->topZCoordinate() + height);
     std::vector<types::Uint> indices;
     this->grid.getNearestIndices(tempvector, indices);
-    types::Uint zIndex = indices[2];
+    this-> zIndex = indices[2];
     std::cout << "STS will be performed at z-index " 
         << zIndex << "\n";
 
@@ -58,6 +56,18 @@ STS2d::STS2d(
     this->grid.originVector[2] = eMin;
     grid.data = std::vector<Real>(grid.countPoints(), 0.0);
     this->broadening = broadening;
+   
+    return true;
+}
+
+
+bool StsCube::calculate(){
+
+    if( ! this->initialize() ) return false;
+
+    std::list< formats::WfnCube >::const_iterator
+        cubeIt = levels.begin(),
+    cubeEnd = levels.end();
 
     // Get all necessary planes
     formats::WfnCube tempCube;
@@ -75,18 +85,17 @@ STS2d::STS2d(
         
     std::cout<< "Done processing cube files...\n\n";
 
-    // Normalize sum to 1
-    grid *= 1.0/grid.sum();
+    // Normalize sum, s.th. values are, on average, 1
+    grid *= Real(grid.countPoints()) / grid.sum();
+
+    return true;
 }
 
 
 
-void STS2d::addLevel(const std::vector<types::Real> &plane,
+void StsCube::addLevel(const std::vector<types::Real> &plane,
                types::Real energy){
-    // Get energy grid
-    Real eMin = getEMin();
-    Real deltaE = getDeltaE();
-    Real eMax = getEMax();
+    
     Uint nEnergies = grid.directions[2].getIncrementCount();
 
     // Gaussian stuff
@@ -110,19 +119,6 @@ void STS2d::addLevel(const std::vector<types::Real> &plane,
      }
 
 
-}
-
-Real STS2d::getEMin(){
-    return grid.originVector[2];
-}
-
-Real STS2d::getEMax(){
-    return (getEMin() +
-           getDeltaE() * (grid.directions[2].getIncrementCount() - 1));
-}
-
-Real STS2d::getDeltaE(){
-    return grid.directions[2].getIncrementVector()[2];
 }
 
 void StmCube::setIsoLevel(types::Real isoValue){

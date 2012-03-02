@@ -1,6 +1,6 @@
 - combine extrapolate and sumbias to a single program
   => extrapolated cubes never have to be written to disk
-- program robertos make_STM in C++
+- stm: Problems with program options reading more than one bias
 
 - cube.cpp: reduce compile time by 
   - importing less qi spirit headers? done
@@ -25,7 +25,5 @@
   line parameters (see the description on boost_program_options
 
 - Change incrementCount ind la::Direction to pointCount or somthing similar
-
-- Change STS2d to StsCube (?) because thats what it is
 
 - replace Grid::sum() by Kahan sum

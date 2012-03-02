@@ -480,22 +480,27 @@ void CubeGrid::zIsoSurface(
     Real dZ = directions[2].getIncrementVector()[2];
     Uint planePoints = directions[0].getIncrementCount()
         * directions[1].getIncrementCount();
-    surface.reserve(zPoints);
+    surface.reserve(planePoints);
     
     
     std::vector<Real>::const_iterator dataIt, dataStop;
     for(Uint p = 0; p < planePoints; ++p){
         // Start from high z, going down
         dataIt = data.begin();
-        dataIt += (p+1) * planePoints - 1;
+        dataIt += (p+1) * zPoints - 1;
+        Uint z = zPoints -1;
         dataStop = data.begin();
-        dataStop += p * planePoints;
-        Uint z = zPoints -1; 
+        dataStop += p * zPoints;
         while(dataIt != dataStop){
             // As soon as we are below iso...
-            if(*dataIt < isoValue){
-                // We need the z-height
-                surface.push_back(z * dZ);
+            if(*dataIt > isoValue){
+                // If we are at the top
+                if(z == zPoints-1) surface.push_back(z * dZ);
+                // else we need to extrapolate
+                else surface.push_back( 
+                            (z-1) * dZ +
+                            (*dataIt - isoValue)/(*dataIt - *(dataIt+1)) * dZ
+                            );
                 break;
             }
             --dataIt;

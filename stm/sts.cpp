@@ -107,7 +107,7 @@ bool readLists(types::String levelFileName,
 
     
     std::cout << "Done with preparation\n------------\n";
-    stm::STS2d mySts = stm::STS2d(
+    stm::StsCube mySts = stm::StsCube(
         cubeList,
         height,
         eMin,
