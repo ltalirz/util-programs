@@ -17,8 +17,10 @@ struct CubeGrid : public la::Grid {
 
     void sumXY(std::vector<types::Real>& reduced) const;
     void zPlane(types::Uint index, std::vector<types::Real> &plane);
+//    void interpolatedZPlane(const std::vector<Real> &zProfile,
+//            std::vector<types::Real> &plane);
     void averageXY(std::vector<types::Real>& reduced) const;
-    void zIsoSurface(types::Real isoValue, std::vector<types::Real> &data) const; 
+    void zIsoSurface(types::Real isoValue, std::vector<types::Real> &coordinates) const; 
     /**
      * In lack of a proper resampling method. No new values are calculated
      */
@@ -29,6 +31,7 @@ struct CubeGrid : public la::Grid {
 
     using la::Grid::getNearestDataPoint;
     types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
+//    types::Real interpolateDataPoint(types::Real x, types::Real y, types::Real z) const;
     using la::Grid::getDataPoint;
     types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
 

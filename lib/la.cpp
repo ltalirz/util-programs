@@ -333,7 +333,7 @@ Real Grid::getDataPoint(const std::vector<Uint>& indices) const {
 }
 
 // This works for nd grids
-bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vector<Uint>& indices) const {
+bool Grid::getFractionalIndices(std::vector<types::Real>& cartesianCoordinates, std::vector<types::Real>& fractionalIndices) const {
     Uint dim = cartesianCoordinates.size();
     if (!checkDimension(dim)) return false;
 
@@ -346,7 +346,6 @@ bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vecto
         ++dirIt;
     }
 
-
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
     using Eigen::Map;
@@ -355,8 +354,40 @@ bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vecto
     VectorXd gridEig = basisMatrix.inverse() * cartesianEig;
 
     std::vector<Real> gridStl(gridEig.data(), gridEig.data() + gridEig.size());
+    fractionalIndices = gridStl;
+    
+    return true;
+}
+
+//Real Grid::interpolateDataPoint(const std::vector<Real> &coordinates) const {
+//    // Get fractional coordinates
+//    std::vector<Real> coordinates, fractionalIndices;
+//    coordinates.push_back(x);
+//    coordinates.push_back(y);
+//    coordinates.push_back(z);
+//    getFractionalCoordinates(coordinates, fractionalIndices);
+//
+//    // Get corners of box
+//    std::vector<Real>::const_iterator it = fractionalIndices.begin(),
+//        fractionalIndices.end();
+//    std::vector<Uint> roundedUp, roundedDown;
+//    while(it != end){
+//        roundedUp.push_back( Uint(*it) + 1);
+//        roundedDown.push_back( Uint(*it) );
+//        ++it;
+//    }
+//    std::vector< std::vector<Uint> > corners;
+//    //std::vector<Uint> tempIndices(dim, 0);
+//
+//    return 0;
+//}
+
+bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vector<Uint>& indices) const {
+    std::vector<Real> fractionalIndices;
+    this->getFractionalIndices(cartesianCoordinates, fractionalIndices);
+    
     indices.clear();
-    for(std::vector<Real>::iterator it = gridStl.begin(); it != gridStl.end(); ++it) {
+    for(std::vector<Real>::iterator it = fractionalIndices.begin(); it != fractionalIndices.end(); ++it) {
         indices.push_back(round(*it));
     }
 

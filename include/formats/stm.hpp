@@ -17,14 +17,16 @@ namespace stm {
  * 
  */
 class StsCube : public formats::Cube {
+    public : enum ModeFlag { CONSTANT_Z, PROFILE };
     private:
         std::list< formats::WfnCube > levels;
-        types::Real height;
         types::Uint zIndex;
         types::Real eMin;
         types::Real eMax;
         types::Real deltaE;
         types::Real broadening;
+        ModeFlag modeFlag;
+        types::String modeParameter;
        
         bool initialize(); 
         void addLevel(
@@ -34,17 +36,19 @@ class StsCube : public formats::Cube {
     public:
         StsCube(
             const std::list< formats::WfnCube > &levels,
-            types::Real height,
             types::Real eMin,
             types::Real eMax,
             types::Real deltaE,
-            types::Real broadening) :
+            types::Real broadening,
+            ModeFlag modeFlag,
+            types::String modeParameter) :
             levels(levels),
-            height(height),
             eMin(eMin), 
             eMax(eMax), 
             deltaE(deltaE), 
-            broadening(broadening)
+            broadening(broadening),
+            modeFlag(modeFlag),
+            modeParameter(modeParameter)
     {       calculate();             }
 
         bool calculate();
@@ -72,6 +76,7 @@ class StmCube : public formats::Cube {
         types::Real getBias() { return bias; }
         void setIsoLevel(types::Real isoValue); 
         bool writeIgorFile(types::String fileName) const;
+        bool readIgorFile(types::String fileName);
 };
 
 }

@@ -19,6 +19,8 @@ namespace at = atomistic;
 namespace stm = formats::stm;
 using namespace types;
 
+
+
 /***********************************************
   Declarations
 ***********************************************/
@@ -35,7 +37,8 @@ bool readLists(types::String levelFileName,
              types::Real eMax,
              types::Real deltaE,
              types::Real broadening,
-             types::Real height);
+             stm::StsCube::ModeFlag modeFlag,
+             types::String modeParameter);
 
 // Inserts info about energy levels in cube file descriptions
 bool insertEnergyLevels( 
@@ -53,6 +56,26 @@ int main(int ac, char* av[]) {
 
     po::variables_map args;
     if (parse(ac, av, args)) {
+
+        stm::StsCube::ModeFlag modeFlag;
+        String modeParameter;
+        
+        if (args["mode"].as< String >() == "constant_z"){
+            if(!args.count("height"))
+                std::cout << "Error: Need to specify 'height' for mode='constant_z'.\n";
+            else{
+                modeFlag = stm::StsCube::CONSTANT_Z;
+                modeParameter = args["height"].as< String >() ;
+            }
+        } else if (args["mode"].as< String >() == "profile"){
+            if (!args.count("igor-file"))
+                std::cout << "Error: Need to specify 'igor-file' for mode='profile'.\n";
+            else{
+                modeFlag = stm::StsCube::PROFILE;
+                modeParameter = args["igor-profile"].as< String >() ;
+            }
+        }
+
         readLists(args["levels"].as< types::String >(),
                 args["cubelist"].as< types::String >(),
                 args["out"].as< types::String >(),
@@ -60,14 +83,14 @@ int main(int ac, char* av[]) {
                 args["emax"].as< types::Real >(),
                 args["delta-e"].as< types::Real >(),
                 args["broadening"].as< types::Real >(),
-                args["height"].as< types::Real >()
-               );
+                modeFlag,
+                modeParameter
+                );
 
     }
 
     return 0;
 }
-
 
 bool readLists(types::String levelFileName,
              types::String cubeListFileName,
@@ -76,7 +99,8 @@ bool readLists(types::String levelFileName,
              types::Real eMax,
              types::Real deltaE,
              types::Real broadening,
-             types::Real height){
+             stm::StsCube::ModeFlag modeFlag,
+             types::String modeParameter){
     using namespace types;
 
     // Read energy levels
@@ -105,15 +129,15 @@ bool readLists(types::String levelFileName,
     cubeListFile.close();
     insertEnergyLevels(cubeList, spectrum, eMin, eMax, broadening);
 
-    
     std::cout << "Done with preparation\n------------\n";
     stm::StsCube mySts = stm::StsCube(
         cubeList,
-        height,
         eMin,
         eMax,
         deltaE,
-        broadening);
+        broadening,
+        modeFlag,
+        modeParameter);
     std::cout << "Writing STS cube file " << outFileName << "\n";
     mySts.writeCubeFile(outFileName);
     
@@ -190,7 +214,9 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     ("emax", po::value<types::Real>(), "Maximum bias for STS")
     ("delta-e", po::value<types::Real>()->default_value(0.01), "Bias step for STS [eV]")
     ("broadening", po::value<types::Real>()->default_value(0.2), "sigma of Gaussian broadening [eV]")
-    ("height", po::value<types::Real>(), "Height [a0] above top surface, where STS shall be performed")
+    ("mode", po::value<types::String>()->default_value("constant_z"), "Scanning mode, may be 'constant_z' or 'read_profile'")
+    ("height", po::value<types::String>(), "Height [a0] above top surface, where STS shall be performed (mode = 'constant_z')")
+    ("igor-profile", po::value<types::String>(), "File containing the z profile (a.u.) on which to perform the STS, e.g. STM profile (mode = 'profile')")
     ;
 
     // Register positional options
@@ -218,12 +244,15 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
             !vm.count("emin") ||
             !vm.count("delta-e") ||
             !vm.count("broadening") ||
-            !vm.count("height")
+            !vm.count("mode")
        ){
         std::cout << "Usage: sts [options]\n";
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
         std::cout << "Mar 1st 2012\n";
+    } else if (vm["mode"].as< String >() != "constant_z" &&
+               vm["mode"].as< String >() != "profile") {
+        std::cout << "Error: Unknown value for option 'mode'\n";
     } else if (vm["emin"].as< Real >() > vm["emax"].as< Real >()){
         std::cout << "Error: emin > emax\n";
     } else {

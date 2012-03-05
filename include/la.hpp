@@ -81,8 +81,10 @@ struct Grid {
     void resize(const std::vector<types::Uint>& incrementCounts);
 
     bool getNearestIndices(std::vector<types::Real>& coordinates, std::vector<types::Uint>& indices) const;
+    bool getFractionalIndices(std::vector<types::Real>& coordinates, std::vector<types::Real>& fractionalIndices) const;
     types::Real getNearestDataPoint(std::vector<types::Real>& coordinates) const;
     types::Real getDataPoint(const std::vector<types::Uint>& indices) const;
+//    types::Real interpolateDataPoint(const std::vector<Real> &coordinates) const;
 
     bool checkRange(const std::vector<types::Uint>& indices) const;
     bool checkDimension(types::Uint size) const;

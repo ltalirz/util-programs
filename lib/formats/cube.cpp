@@ -394,6 +394,27 @@ Real CubeGrid::getDataPoint(Uint x, Uint y, Uint z) const {
     return getDataPoint(indices);
 }
 
+//types::Real CubeGrid::interpolateDataPoint(types::Real x, types::Real y, types::Real z) const {
+//    std::vector<Real> coordinates, i;
+//    coordinates.push_back(x);
+//    coordinates.push_back(y);
+//    coordinates.push_back(z);
+//    getFractionalCoordinates(coordinates, i);
+//
+//
+//    return  getDataPoint( Uint(i[0]), Uint(i[1]), Uint(i[2])) * (1-i[0]) * (1-i[1]) * (1-i[2])
+//};
+//
+//void CubeGrid::interpolatedZPlane(const std::vector<Real> &zProfile,
+//            std::vector<types::Real> &plane){
+//    std::vector<Uint> indices;
+//    std::vector<Real>::const_iterator it = zProfile.begin(),
+//          end = zProfile.end();
+//
+//   while(it != end){
+//       getNearest
+//
+
 void CubeGrid::zPlane(Uint zIndex, std::vector<types::Real> &plane) {
     using namespace blitz;
     std::vector<Real> test;

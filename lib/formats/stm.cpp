@@ -5,6 +5,9 @@
 #include <cmath>
 
 #include <boost/format.hpp>
+#include <boost/spirit/include/qi_core.hpp>
+#include <boost/spirit/include/qi_eol.hpp>
+#include <boost/lexical_cast.hpp>
 
 namespace formats {
 namespace stm {
@@ -26,23 +29,26 @@ bool StsCube::initialize(){
     this->fileName = cubeIt->fileName;
     this->readCubeFile();
 
-    // Get z index of STS plane
-    std::vector<types::Real> tempvector;
-    tempvector.push_back(0);
-    tempvector.push_back(0);
-    tempvector.push_back(this->topZCoordinate() + height);
-    std::vector<types::Uint> indices;
-    this->grid.getNearestIndices(tempvector, indices);
-    this-> zIndex = indices[2];
-    std::cout << "STS will be performed at z-index " 
-        << zIndex << "\n";
+    if(modeFlag == CONSTANT_Z){
+        Real height = boost::lexical_cast<Real>(modeParameter);
+    
+        // Get z index of STS plane
+        std::vector<types::Real> tempvector;
+        tempvector.push_back(0);
+        tempvector.push_back(0);
+        tempvector.push_back(this->topZCoordinate() + height);
+        std::vector<types::Uint> indices;
+        this->grid.getNearestIndices(tempvector, indices);
+        this-> zIndex = indices[2];
+        std::cout << "STS will be performed at z-index " 
+            << zIndex << "\n";
 
-    this->title  = "STS data (z = energy)";
-    this->title += str(boost::format(" at z-plane %3d") % zIndex);
-    this->description  = str(boost::format(
-                "Range [%1.3d V,%1.3d V], delta-e %1.4d, sigma %1.4d")
+        this->title  = "STS data (z = energy)";
+        this->title += str(boost::format(" at z-plane %3d") % zIndex);
+        this->description  = str(boost::format(
+                    "Range [%1.3d V,%1.3d V], delta-e %1.4d, sigma %1.4d")
                 % eMin % eMax % deltaE % broadening);
-
+    }
 
     // Adjust z dimension for energy
     Uint newIncrementCount =(unsigned int) ((eMax - eMin)/deltaE) + 1;
@@ -144,6 +150,28 @@ bool StmCube::writeIgorFile(String fileName) const {
     return io::writeStream(fileName, result);
 }
 
+
+bool StmCube::readIgorFile(String fileName) {
+    String content;
+    io::readFile(fileName, content);
+    
+    std::vector<Real> data;
+    std::string::const_iterator it = content.begin(),
+        end = content.end();
+
+    using boost::spirit::double_;
+    using boost::spirit::qi::eol;
+    using boost::spirit::qi::parse;
+    using boost::spirit::ascii::space;
+    if (! parse(
+        it,
+        end,
+        double_ % space,
+        data
+        )) throw types::parseError() << types::errinfo_parse("title or description");
+
+   return true;
+} 
 
 }
 }
