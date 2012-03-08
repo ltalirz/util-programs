@@ -12,8 +12,9 @@ using namespace types;
  values at the coordinates of the isosurface
  to test if isosurface value is reproduced.
 
- For my example I found that the interpolated values
- differed from the isosurface value by a factor of up to 2.
+ For my example I found that the relative difference between
+ isovalue and interpolated values was below 2e-5 for all numbers.
+ 
  If we want to improve this, we need to change from linear
  to a better interpolation.
 */

@@ -119,16 +119,16 @@ void StsCube::interpolateOnZProfile(
 
     Real dZ = grid.directions[2].getIncrementVector()[2];
     std::vector<Real>::const_iterator zIt = this->stm.stm.begin();
-    Real valLow, valHigh, delta;
+    Real valLow, valHigh, deltaLow;
     Uint zLow;
     for(Uint x = 0; x < nX; ++x){
         for(Uint y = 0; y < nY; ++y){
             zLow = Uint(*zIt / dZ);
-            delta = (*zIt - zLow * dZ) / dZ; // Between 0 and 1
+            deltaLow = (*zIt - zLow * dZ) / dZ; // Between 0 and 1
             valLow = grid.getDataPoint(x, y, zLow);
             valHigh = grid.getDataPoint(x, y, zLow + 1);
 
-            result.push_back(valLow * delta + valHigh * (1.0 - delta));
+            result.push_back(valLow * (1.0 - deltaLow) + valHigh * deltaLow);
 
             ++zIt;
         }
