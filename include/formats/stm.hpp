@@ -12,52 +12,8 @@
 namespace formats {
 namespace stm {
 
-/**
- * STS in 2d
- * 
- */
-class StsCube : public formats::Cube {
-    public : enum ModeFlag { CONSTANT_Z, PROFILE };
-    private:
-        std::list< formats::WfnCube > levels;
-        types::Uint zIndex;
-        types::Real eMin;
-        types::Real eMax;
-        types::Real deltaE;
-        types::Real broadening;
-        ModeFlag modeFlag;
-        types::String modeParameter;
-       
-        bool initialize(); 
-        void addLevel(
-                const std::vector<types::Real> &plane,
-                types::Real energy);
+class StsCube;    
 
-    public:
-        StsCube(
-            const std::list< formats::WfnCube > &levels,
-            types::Real eMin,
-            types::Real eMax,
-            types::Real deltaE,
-            types::Real broadening,
-            ModeFlag modeFlag,
-            types::String modeParameter) :
-            levels(levels),
-            eMin(eMin), 
-            eMax(eMax), 
-            deltaE(deltaE), 
-            broadening(broadening),
-            modeFlag(modeFlag),
-            modeParameter(modeParameter)
-    {       calculate();             }
-
-        bool calculate();
-        types::Real getEMin();
-        types::Real getEMax();
-        types::Real getDeltaE();
-};
-    
-    
 /**
  * STM image
  * List of WfnCubes and bias
@@ -77,7 +33,64 @@ class StmCube : public formats::Cube {
         void setIsoLevel(types::Real isoValue); 
         bool writeIgorFile(types::String fileName) const;
         bool readIgorFile(types::String fileName);
+        std::vector<types::Real> getZProfile() const { return stm; }
+        void setZProfile(const std::vector<types::Real> &p) { stm = p; }
+
+        friend class StsCube;
 };
+
+/**
+ * STS in 2d
+ * 
+ */
+class StsCube : public formats::Cube {
+    public : enum ModeFlag { CONSTANT_Z, PROFILE };
+    private:
+        std::list< formats::WfnCube > levels;
+        types::Uint zIndex;
+        StmCube stm;
+        types::Real eMin;
+        types::Real eMax;
+        types::Real deltaE;
+        types::Real sigma;
+        ModeFlag modeFlag;
+        types::String modeParameter;
+       
+        bool initialize(); 
+        void addLevel(
+                const std::vector<types::Real> &plane,
+                types::Real energy);
+
+    public:
+        StsCube(
+            const std::list< formats::WfnCube > &levels,
+            types::Real eMin,
+            types::Real eMax,
+            types::Real deltaE,
+            types::Real Fwhm,
+            ModeFlag modeFlag,
+            types::String modeParameter) :
+            levels(levels),
+            eMin(eMin), 
+            eMax(eMax), 
+            deltaE(deltaE), 
+            sigma(Fwhm/2.355),
+            modeFlag(modeFlag),
+            modeParameter(modeParameter)
+    {       calculate();             }
+        StsCube(){};
+
+        bool calculate();
+        types::Real getEMin();
+        types::Real getEMax();
+        types::Real getDeltaE();
+        void interpolateOnZProfile(const formats::CubeGrid &grid, 
+                std::vector<types::Real> &result) const;
+        void setStm(const StmCube &s){ stm = s; }
+        const StmCube & getStm(){ return stm; }
+};
+    
+    
 
 }
 }

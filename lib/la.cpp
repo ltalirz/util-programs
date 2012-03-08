@@ -17,6 +17,17 @@ namespace la {
 
 using namespace types;
 
+/**
+ * Required template specializations
+ */
+
+template class Grid<3>;
+
+/**
+ * Implementation
+ */
+
+
 Int round(Real r) {
     return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
 }
@@ -25,16 +36,18 @@ Cell::Cell(const std::vector<Direction> &directions) {
     for(std::vector<Direction>::const_iterator dIt = directions.begin();
             dIt != directions.end(); ++dIt) {
         Direction temp = *dIt;
-        temp.scaleVector(temp.getIncrementCount());
+        temp.scaleVector(temp.getNElements());
         vectors.push_back(temp.getIncrementVector());
     }
 }
 
-Cell Grid::cell() const {
+template<unsigned int dim>
+Cell Grid<dim>::cell() const {
     return Cell(directions);
 }
 
-bool Grid::hasSameGrid(const Grid &g) const {
+template<unsigned int dim>
+bool Grid<dim>::hasSameGrid(const Grid<dim> &g) const {
     if(this->directions == g.directions &&
             this->originVector == g.originVector)
         return true;
@@ -44,11 +57,11 @@ bool Grid::hasSameGrid(const Grid &g) const {
 
 bool operator==(const Direction& d1, const Direction& d2) {
     return (d1.incrementVector == d2.incrementVector &&
-            d1.incrementCount == d2.incrementCount);
+            d1.nElements == d2.nElements);
 }
 
 bool Direction::checkRange(Uint index) const {
-    if(index < incrementCount) return true;
+    if(index < nElements || periodic) return true;
 #ifdef LA_STRICT
     else throw std::range_error("Index out of range.");
 #else
@@ -58,8 +71,8 @@ bool Direction::checkRange(Uint index) const {
 
 void Direction::stride(types::Uint s) {
     this->scaleVector(s);
-    if(incrementCount % s == 0) incrementCount = incrementCount/s;
-    else incrementCount = incrementCount/s + 1;
+    if(nElements % s == 0) nElements = nElements/s;
+    else nElements = nElements/s + 1;
 }
 
 void Direction::scaleVector(types::Real factor) {
@@ -69,7 +82,8 @@ void Direction::scaleVector(types::Real factor) {
     }
 }
 
-const Grid & Grid::operator+=(const Grid &g) {
+template<unsigned int dim>
+const Grid<dim> & Grid<dim>::operator+=(const Grid<dim> &g) {
     if(!this->hasSameGrid(g))
         throw types::runtimeError() <<
                                     types::errinfo_runtime("Cannot add data on different grids.");
@@ -87,7 +101,8 @@ const Grid & Grid::operator+=(const Grid &g) {
     return *this;
 }
 
-void Grid::stride(std::vector<Uint> strides) {
+template<unsigned int dim>
+void Grid<dim>::stride(std::vector<Uint> strides) {
     Uint dimension = strides.size();
     checkDimension(dimension);
 
@@ -101,12 +116,12 @@ void Grid::stride(std::vector<Uint> strides) {
     while(dirIt != directions.end()) {
         Direction d = *dirIt;
         d.stride(*sIt);
-        size *= d.getIncrementCount();
+        size *= d.getNElements();
         newDirections.push_back(d);
-        newCounts.push_back(d.getIncrementCount());
+        newCounts.push_back(d.getNElements());
 
         // Handle "rest"
-        Uint r = dirIt->getIncrementCount() % *sIt;
+        Uint r = dirIt->getNElements() % *sIt;
         if(r > 0) rests.push_back(r);
         else rests.push_back(*sIt);
 
@@ -121,12 +136,13 @@ void Grid::stride(std::vector<Uint> strides) {
     std::vector<Real>::iterator newIt = newData.begin();
     this->strideRecursive(0, dataIt, newIt, newCounts, strides, rests);
 
-    // Update data and incrementCounts
+    // Update data and nElements
     this->data = newData;
     this->directions = newDirections;
 }
 
-void Grid::strideRecursive(
+template<unsigned int dim>
+void Grid<dim>::strideRecursive(
     Uint directionIndex,
     std::vector<Real>::const_iterator &oldIt,
     std::vector<Real>::iterator &newIt,
@@ -139,12 +155,12 @@ void Grid::strideRecursive(
     // If directionIndex is out of bounds, we are finished
     if( directionIndex >= dimension) return;
 
-    Uint oldCount = directions[directionIndex].getIncrementCount(),
+    Uint oldCount = directions[directionIndex].getNElements(),
          newCount = newCounts[directionIndex];
 
     Uint weight = 1;
     for(Uint i = dimension -1; i > directionIndex; --i) {
-        weight *= directions[i].getIncrementCount();
+        weight *= directions[i].getNElements();
     }
     Uint stride = weight * strides[directionIndex];
     Uint rest = weight * rests[directionIndex];
@@ -165,7 +181,7 @@ void Grid::strideRecursive(
         }
     }
 
-    // The above is sufficient, if stride divides incrementCount
+    // The above is sufficient, if stride divides nElements
     // In this case, rest = stride
     oldIt += rest;
     oldIt -= stride;
@@ -182,14 +198,15 @@ void Grid::strideRecursive(
  * I should test the speed and maybe think about a specialization for 3d.
  * Maybe one can do the recursion during compile time via templates.
  */
-void Grid::resize(const std::vector<Uint>& incrementCounts) {
-    Uint dimension = incrementCounts.size();
+template<unsigned int dim>
+void Grid<dim>::resize(const std::vector<Uint>& nElements) {
+    Uint dimension = nElements.size();
     checkDimension(dimension);
 
     // Get size for preallocation
     Uint size = 1;
-    std::vector<Uint>::const_iterator incIt = incrementCounts.begin(),
-                                      incEnd = incrementCounts.end();
+    std::vector<Uint>::const_iterator incIt = nElements.begin(),
+                                      incEnd = nElements.end();
     while(incIt != incEnd) {
         size *= *incIt;
         incIt++;
@@ -200,12 +217,12 @@ void Grid::resize(const std::vector<Uint>& incrementCounts) {
     // Starting with direction 0, the slowest direction
     std::vector<Real>::const_iterator dataIt = data.begin();
     std::vector<Real>::iterator newIt = newData.begin();
-    this->copyRecursive(0, dataIt, newIt, incrementCounts);
+    this->copyRecursive(0, dataIt, newIt, nElements);
 
-    // Update data and incrementCounts
+    // Update data and nElements
     this->data = newData;
     std::vector<Direction>::iterator dirIt = directions.begin();
-    for(incIt = incrementCounts.begin(); incIt != incEnd; ++incIt, ++dirIt) {
+    for(incIt = nElements.begin(); incIt != incEnd; ++incIt, ++dirIt) {
         Direction temp = Direction(dirIt->getIncrementVector(), *incIt);
         *dirIt = temp;
     }
@@ -215,7 +232,8 @@ void Grid::resize(const std::vector<Uint>& incrementCounts) {
  *
  * The *last* dimension is the fast one (as in 3d cube file format)
  */
-void Grid::copyRecursive(
+template<unsigned int dim>
+void Grid<dim>::copyRecursive(
     Uint directionIndex,
     std::vector<Real>::const_iterator &oldIt,
     std::vector<Real>::iterator &newIt,
@@ -226,7 +244,7 @@ void Grid::copyRecursive(
     // If directionIndex is out of bounds, we are finished
     if( directionIndex >= dimension) return;
 
-    Uint oldCount = directions[directionIndex].getIncrementCount(),
+    Uint oldCount = directions[directionIndex].getNElements(),
          newCount = newCounts[directionIndex];
     Uint copyCount = std::min(oldCount, newCount),
          iterCount = std::max(oldCount, newCount);
@@ -257,7 +275,8 @@ void Grid::copyRecursive(
     }
 }
 
-void Grid::squareValues() {
+template<unsigned int dim>
+void Grid<dim>::squareValues() {
     std::vector<Real>::iterator it = data.begin(), end = data.end();
     while(it != end) {
         (*it) *= (*it);
@@ -265,14 +284,16 @@ void Grid::squareValues() {
     }
 }
 
-void Grid::abs() {
+template<unsigned int dim>
+void Grid<dim>::abs() {
     std::vector<Real>::iterator it = data.begin(), end = data.end();
     while(it != end) {
         *it = std::abs(*it);
         ++it;
     }
 }
-void Grid::sqrt() {
+template<unsigned int dim>
+void Grid<dim>::sqrt() {
     std::vector<Real>::iterator it = data.begin(), end = data.end();
     while(it != end) {
         *it = std::sqrt(std::abs(*it));
@@ -280,15 +301,17 @@ void Grid::sqrt() {
     }
 }
 
-bool Grid::checkDimension(Uint size) const {
-    if (size != directions.size()) {
+template<unsigned int dim>
+bool Grid<dim>::checkDimension(Uint size) const {
+    if (size != dim) {
         throw std::range_error("Number of given indices does not equal number of grid directions.");
     }
 
     return true;
 }
 
-bool Grid::checkRange(const std::vector<Uint>& indices) const {
+template<unsigned int dim>
+bool Grid<dim>::checkRange(const std::vector<Uint>& indices) const {
 
     checkDimension(indices.size());
     std::vector<Uint>::const_iterator indexIt = indices.end(), indexEnd = indices.end();
@@ -301,7 +324,8 @@ bool Grid::checkRange(const std::vector<Uint>& indices) const {
     return true;
 }
 
-Real Grid::getNearestDataPoint(std::vector<Real>& coordinates) const {
+template<unsigned int dim>
+Real Grid<dim>::getNearestDataPoint(std::vector<Real>& coordinates) const {
     std::vector<Uint> indices;
     this->getNearestIndices(coordinates, indices);
     return this->getDataPoint(indices);
@@ -311,9 +335,11 @@ Real Grid::getNearestDataPoint(std::vector<Real>& coordinates) const {
 
 // This works for n dimensions,
 // assuming that they are ordered by increasing fastness
-Real Grid::getDataPoint(const std::vector<Uint>& indices) const {
+template<unsigned int dim>
+Real Grid<dim>::getDataPoint(std::vector<Uint> indices) const {
+    wrapAround(indices);
     checkRange(indices);
-
+    
     // Note: end() points *after* the last item
     std::vector<Uint>::const_iterator indexIt = indices.end(), indexBegin = indices.begin();
     std::vector<Direction>::const_iterator dirIt = directions.end(), dirFirst = directions.begin();
@@ -325,7 +351,7 @@ Real Grid::getDataPoint(const std::vector<Uint>& indices) const {
     while(dirIt != dirFirst) {
         --dirIt;
         --indexIt;
-        weight *= dirIt->getIncrementCount();
+        weight *= dirIt->getNElements();
         dataIt += (*indexIt) * weight;
     }
 
@@ -333,7 +359,8 @@ Real Grid::getDataPoint(const std::vector<Uint>& indices) const {
 }
 
 // This works for nd grids
-bool Grid::getFractionalIndices(std::vector<types::Real>& cartesianCoordinates, std::vector<types::Real>& fractionalIndices) const {
+template<unsigned int dim>
+bool Grid<dim>::getFractionalIndices(std::vector<types::Real>& cartesianCoordinates, std::vector<types::Real>& fractionalIndices) const {
     Uint dim = cartesianCoordinates.size();
     if (!checkDimension(dim)) return false;
 
@@ -359,30 +386,65 @@ bool Grid::getFractionalIndices(std::vector<types::Real>& cartesianCoordinates, 
     return true;
 }
 
-//Real Grid::interpolateDataPoint(const std::vector<Real> &coordinates) const {
-//    // Get fractional coordinates
-//    std::vector<Real> coordinates, fractionalIndices;
-//    coordinates.push_back(x);
-//    coordinates.push_back(y);
-//    coordinates.push_back(z);
-//    getFractionalCoordinates(coordinates, fractionalIndices);
-//
-//    // Get corners of box
-//    std::vector<Real>::const_iterator it = fractionalIndices.begin(),
-//        fractionalIndices.end();
-//    std::vector<Uint> roundedUp, roundedDown;
-//    while(it != end){
-//        roundedUp.push_back( Uint(*it) + 1);
-//        roundedDown.push_back( Uint(*it) );
-//        ++it;
-//    }
-//    std::vector< std::vector<Uint> > corners;
-//    //std::vector<Uint> tempIndices(dim, 0);
-//
-//    return 0;
-//}
 
-bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vector<Uint>& indices) const {
+template<unsigned int dim>
+Real Grid<dim>::interpolateDataPoint(std::vector<Real> coordinates) const {
+    // Get indices of relevant unit cell and the relative location inside the cell
+    std::vector<Real> fractionalIndices;
+    getFractionalIndices(coordinates, fractionalIndices);
+
+    std::vector<Real>::const_iterator it = fractionalIndices.begin(),
+        end = fractionalIndices.end();
+    std::vector<Uint> unitCellIndices;
+    std::vector<Real> shiftedFractionalIndices;
+    while(it != end){
+        unitCellIndices.push_back( Uint(*it) );
+        shiftedFractionalIndices.push_back( *it - Uint(*it));
+        ++it;
+    }
+
+    // Loop over corners of unit cell
+    std::vector< std::vector<Uint> > corners;
+ 
+    Uint nCorners = 1 << dim; // 1 * 2^dim
+    Uint bit;
+    Real sum = 0, summand;
+    for(Uint corner = 0; corner < nCorners; ++corner) {
+        std::vector<Uint> cornerIndices = unitCellIndices;
+        summand = 1;
+        
+        // Get binary representation of corner integer
+        for(Uint i = 0; i < dim; ++i){
+            bit = (corner >> i) & 1; // Either 0 or 1
+            cornerIndices[i] += bit;
+            if(bit == 0) summand *= shiftedFractionalIndices[i];
+            else         summand *= (1 - shiftedFractionalIndices[i]);
+        }
+        
+        summand *= getDataPoint(cornerIndices);
+        sum     += summand;
+
+    } 
+
+    return sum;
+}
+
+template<unsigned int dim>
+void Grid<dim>::wrapAround(std::vector<Uint> &indices) const {
+    std::vector<Uint>::iterator it = indices.begin(),
+        end = indices.end();
+    std::vector<Direction>::const_iterator dirIt = directions.begin();
+    while(it != end){
+        if(*it > dirIt->getNElements() && dirIt->isPeriodic())
+            *it = *it % dirIt->getNElements();
+        ++it;
+    }
+}
+    
+
+
+template<unsigned int dim>
+bool Grid<dim>::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vector<Uint>& indices) const {
     std::vector<Real> fractionalIndices;
     this->getFractionalIndices(cartesianCoordinates, fractionalIndices);
     
@@ -394,7 +456,8 @@ bool Grid::getNearestIndices(std::vector<Real>& cartesianCoordinates, std::vecto
     return true;
 }
 
-const Grid & Grid::operator*=(types::Real x) {
+template<unsigned int dim>
+const Grid<dim> & Grid<dim>::operator*=(types::Real x) {
     std::vector<Real>::iterator dataIt = data.begin(),
                                 dataEnd = data.end();
     while(dataIt != dataEnd) {
@@ -404,16 +467,17 @@ const Grid & Grid::operator*=(types::Real x) {
     return *this;
 }
 
-Uint Grid::countPoints() const {
+template<unsigned int dim>
+Uint Grid<dim>::countPoints() const {
     std::vector<Direction>::const_iterator it;
     Uint points = 1;
     for(it = directions.begin(); it!= directions.end(); ++it) {
-        points *= it->getIncrementCount();
+        points *= it->getNElements();
     }
     return points;
 }
 
-types::Real Cell::getExtent(types::Uint index){
+types::Real Cell::getExtent(types::Uint index) const {
     std::vector<Real>::const_iterator it = vectors[index].begin(),
        end = vectors[index].end(); 
     types::Real sum = 0;
@@ -423,8 +487,20 @@ types::Real Cell::getExtent(types::Uint index){
     }
     return std::sqrt(sum);
 }
-    
-types::Real Grid::sum() const{
+
+std::vector<Real> Cell::extents() const {
+    std::vector<Real> extents;
+    for(Uint i = 0; i < vectors.size(); ++i){
+        extents.push_back(getExtent(i));
+    }
+
+    return extents;
+}
+
+
+// TODO: replace by Kahan sum
+template<unsigned int dim>
+types::Real Grid<dim>::sum() const{
     std::vector<Real>::const_iterator it = data.begin(),
         end = data.end();
     Real sum = 0;

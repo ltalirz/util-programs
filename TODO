@@ -13,17 +13,18 @@
      function that calls the constructor and returns a class object)
     At the moment I just defined Cube as a friend class.
 
-- la: replace Grid by template<unsigned int dim> Grid and implement
-  stride/resize using Blitz++
-  One might think of a specialization CubeGrid and move the convenience
+- la: implement  stride/resize using Blitz++
+
+- replace Grid::sum() by Kahan sum
+
+
+Done:
+- Change incrementCount ind la::Direction to pointCount or somthing similar
+- la: replace Grid by template<unsigned int dim> Grid   One might think of a specialization CubeGrid and move the convenience
   functions there  (declared in formats/cube.h)
 - Sadly, there is no const way of mapping preexisting data with blitz (?)
   Think about a solution for that
-
+  Solution: Cheat by using const_cast
 - Do transition to reading from configuration file instead of command
   line parameters (see the description on boost_program_options
-
-- Change incrementCount ind la::Direction to pointCount or somthing similar
-
-- replace Grid::sum() by Kahan sum
 

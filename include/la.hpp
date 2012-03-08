@@ -14,22 +14,24 @@ namespace la {
 
 class Direction {
     std::vector<types::Real> incrementVector;
-    types::Uint incrementCount;
+    types::Uint nElements;
+    bool periodic;
 
 public:
     Direction() {};
     Direction(std::vector<types::Real> v, types::Uint c) :
-        incrementVector(v), incrementCount(c) {};
+        incrementVector(v), nElements(c) {};
     /**
      * Adapts Direction for given stride.
      */
     void stride(types::Uint s);
     void scaleVector(types::Real factor);
-    types::Uint getIncrementCount() const { 
-        return incrementCount;}
+    types::Uint getNElements() const { 
+        return nElements;}
     const std::vector<types::Real> & getIncrementVector() const { 
         return incrementVector;}
     bool checkRange(types::Uint index) const;
+    bool isPeriodic() const { return periodic; }
     
     friend bool operator==(const Direction& d1, const Direction& d2);
     friend class formats::Cube;
@@ -43,10 +45,11 @@ public:
     std::vector< types::Real > vector(types::Uint n) {
         return vectors[n];
     }
-    types::Real getExtent(types::Uint index);
+    types::Real getExtent(types::Uint index) const;
+    std::vector<types::Real> extents() const;
 };
 
-
+template <unsigned int dim>
 struct Grid {
     std::vector<Direction> directions;
     std::vector<types::Real> originVector;
@@ -78,17 +81,18 @@ struct Grid {
      * In lack of a proper resampling method. No new values are calculated
      */
     void stride(std::vector<types::Uint> stride);
-    void resize(const std::vector<types::Uint>& incrementCounts);
+    void resize(const std::vector<types::Uint>& nElements);
 
     bool getNearestIndices(std::vector<types::Real>& coordinates, std::vector<types::Uint>& indices) const;
     bool getFractionalIndices(std::vector<types::Real>& coordinates, std::vector<types::Real>& fractionalIndices) const;
     types::Real getNearestDataPoint(std::vector<types::Real>& coordinates) const;
-    types::Real getDataPoint(const std::vector<types::Uint>& indices) const;
-//    types::Real interpolateDataPoint(const std::vector<Real> &coordinates) const;
+    types::Real getDataPoint(std::vector<types::Uint> indices) const;
+    types::Real interpolateDataPoint(std::vector<types::Real> coordinates) const;
 
     bool checkRange(const std::vector<types::Uint>& indices) const;
     bool checkDimension(types::Uint size) const;
     bool hasSameGrid(const Grid &g) const;
+    void wrapAround(std::vector<types::Uint> &indices) const;
 
 private:
     void copyRecursive(

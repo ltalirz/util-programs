@@ -13,7 +13,7 @@ namespace formats {
 /**
  * Specialized grid with several member functions for 3d
  */
-struct CubeGrid : public la::Grid {
+struct CubeGrid : public la::Grid<3> {
 
     void sumXY(std::vector<types::Real>& reduced) const;
     void zPlane(types::Uint index, std::vector<types::Real> &plane);
@@ -24,16 +24,17 @@ struct CubeGrid : public la::Grid {
     /**
      * In lack of a proper resampling method. No new values are calculated
      */
-    using la::Grid::stride;
+    using la::Grid<3>::stride;
     void stride(types::Uint, types::Uint, types::Uint);
-    using la::Grid::resize;
+    using la::Grid<3>::resize;
     void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
 
-    using la::Grid::getNearestDataPoint;
+    using la::Grid<3>::getNearestDataPoint;
     types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
 //    types::Real interpolateDataPoint(types::Real x, types::Real y, types::Real z) const;
-    using la::Grid::getDataPoint;
+    using la::Grid<3>::getDataPoint;
     types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
+    types::Real interpolateZData(types::Uint x, types::Uint y, types::Real z) const;
 
 private:
 };

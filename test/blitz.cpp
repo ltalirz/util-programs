@@ -3,6 +3,24 @@
 #include <vector>
 #include <math.h>
 
+// Mapping preexisting data the const way
+class Test {
+    public:
+        std::vector<double> v;
+        void mapBlitz() const;
+};
+
+void Test::mapBlitz() const{
+    using namespace blitz;
+    const Array<double,1> vecArray(&v[0], shape(v.size()), neverDeleteData);
+}
+void testConst(){
+    Test t = Test();
+    t.v = std::vector<double>(10,3.2);
+    t.mapBlitz();
+}
+
+
 // Blitz++ has built-in stride support
 template<unsigned int dimension>
 void strideT(unsigned int size){

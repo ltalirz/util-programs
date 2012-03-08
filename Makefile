@@ -27,7 +27,7 @@ UTILPROGS  = cubestride cubescale cubesquare cuberoot cubeabs
 TEST       = fftw fftw-2 stl blitz inherit karma progress po core
 TESTTARGETS   = $(addprefix test/, $(TEST))
 # These targets may depend on my library
-TESTLIB    = regex qi qi-stack qi-cptime read write la readcp types p
+TESTLIB    = regex qi qi-stack qi-cptime read write la readcp types p stm
 TESTLIBTARGETS   = $(addprefix test/, $(TESTLIB))
 TESTMPI    = mpi
 TESTMPITARGETS   = $(addprefix test/, $(TESTLIB))

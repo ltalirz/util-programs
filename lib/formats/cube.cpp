@@ -108,7 +108,7 @@ bool Cube::readCubeFile(String filename) {
     rule<binIt, std::vector<Real>(), space_type> vectorRule =
         repeat(3)[double_];
     rule<binIt, Direction(), space_type> directionRule =
-        uint_[bind(&Direction::incrementCount, _val) = _1] >>
+        uint_[bind(&Direction::nElements, _val) = _1] >>
         vectorRule[bind(&Direction::incrementVector, _val) = _1];
     if(! phrase_parse(
         it,
@@ -184,7 +184,7 @@ void Cube::addHeader(Stream &stream) const {
     for(it = directions.begin(); it!= directions.end(); ++it) {
         generate(sink, 
                 right_align(5)[int_] << repeat(3)[right_align(12)[types::real6]] << eol,
-                it->incrementCount, 
+                it->nElements, 
                 it->incrementVector);
     }
     // Atoms
@@ -211,7 +211,7 @@ void Cube::addData(Stream &stream) const {
     std::vector<Real>::const_iterator dataIt = data.begin();
     // Fastest direction is z, stored in directions[2]
     const std::vector<la::Direction> &directions = grid.getDirections();
-    Uint i = 1, nZ = directions[2].incrementCount;
+    Uint i = 1, nZ = directions[2].nElements;
     while(dataIt != data.end()) {
         generate(sink, right_align(13)[types::sci5], *dataIt);
         if(i % 6 == 0) generate(sink, eol);
@@ -394,6 +394,8 @@ Real CubeGrid::getDataPoint(Uint x, Uint y, Uint z) const {
     return getDataPoint(indices);
 }
 
+
+
 //types::Real CubeGrid::interpolateDataPoint(types::Real x, types::Real y, types::Real z) const {
 //    std::vector<Real> coordinates, i;
 //    coordinates.push_back(x);
@@ -420,9 +422,9 @@ void CubeGrid::zPlane(Uint zIndex, std::vector<types::Real> &plane) {
     std::vector<Real> test;
     const Array<Real,3> dataArray(
         &data[0],
-        shape(directions[0].getIncrementCount(),
-              directions[1].getIncrementCount(),
-              directions[2].getIncrementCount()),
+        shape(directions[0].getNElements(),
+              directions[1].getNElements(),
+              directions[2].getNElements()),
         neverDeleteData);
     Array<types::Real,2> blitzPlane =
         dataArray(Range::all(), Range::all(), zIndex);
@@ -438,7 +440,7 @@ void CubeGrid::sumXY(std::vector<Real>& reduced) const {
     using namespace blitz;
     namespace t = tensor;
 
-    Array<Real,3> dataArray(&data[0], shape(directions[0].incrementCount, directions[1].incrementCount, directions[2].incrementCount));
+    Array<Real,3> dataArray(&data[0], shape(directions[0].nElements, directions[1].nElements, directions[2].nElements));
     // reduce second dimension
     Array<Real,2> reducedY(sum(dataArray(t::i,t::k,t::j), t::k));
     //std::cout << reduceY;
@@ -448,7 +450,7 @@ void CubeGrid::sumXY(std::vector<Real>& reduced) const {
      **/
 
     std::vector<Real>::const_iterator itData=data.begin(), endData=data.end();
-    reduced = std::vector<Real>(directions[2].getIncrementCount(), 0.0);
+    reduced = std::vector<Real>(directions[2].getNElements(), 0.0);
     std::vector<Real>::iterator itReduced=reduced.begin(), endReduced=reduced.end();
     // z is the fast index of the cube file, so we just need to sum
     // all of the z-compartments together
@@ -467,7 +469,7 @@ void CubeGrid::sumXY(std::vector<Real>& reduced) const {
 
 void CubeGrid::averageXY(std::vector<Real>& reduced) const {
     sumXY(reduced);
-    Uint points = countPoints() / directions[2].getIncrementCount();
+    Uint points = countPoints() / directions[2].getNElements();
 
     std::vector<Real>::iterator it;
     for(it = reduced.begin(); it!= reduced.end(); ++it) {
@@ -497,10 +499,10 @@ void CubeGrid::zIsoSurface(
         types::Real isoValue, 
         std::vector<types::Real> &surface) const {
 
-    Uint zPoints = directions[2].getIncrementCount();
+    Uint zPoints = directions[2].getNElements();
     Real dZ = directions[2].getIncrementVector()[2];
-    Uint planePoints = directions[0].getIncrementCount()
-        * directions[1].getIncrementCount();
+    Uint planePoints = directions[0].getNElements()
+        * directions[1].getNElements();
     surface.reserve(planePoints);
     
     
@@ -513,13 +515,13 @@ void CubeGrid::zIsoSurface(
         dataStop = data.begin();
         dataStop += p * zPoints;
         while(dataIt != dataStop){
-            // As soon as we are below iso...
+            // As soon as we enter the isosurface
             if(*dataIt > isoValue){
-                // If we are at the top
+                // If we are still at the top of the grid
                 if(z == zPoints-1) surface.push_back(z * dZ);
                 // else we need to extrapolate
                 else surface.push_back( 
-                            (z-1) * dZ +
+                            z * dZ +
                             (*dataIt - isoValue)/(*dataIt - *(dataIt+1)) * dZ
                             );
                 break;

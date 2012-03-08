@@ -28,7 +28,12 @@ bool StsCube::initialize(){
     // Get atoms and proper grid
     this->fileName = cubeIt->fileName;
     this->readCubeFile();
-
+    
+    this->title  = "STS data (z = energy)";
+    this->description  = str(boost::format(
+                "Range [%1.3d V,%1.3d V], delta %1.4d V, sigma %1.4d V")
+            % eMin % eMax % deltaE % sigma);
+    
     if(modeFlag == CONSTANT_Z){
         Real height = boost::lexical_cast<Real>(modeParameter);
     
@@ -42,26 +47,28 @@ bool StsCube::initialize(){
         this-> zIndex = indices[2];
         std::cout << "STS will be performed at z-index " 
             << zIndex << "\n";
-
-        this->title  = "STS data (z = energy)";
         this->title += str(boost::format(" at z-plane %3d") % zIndex);
-        this->description  = str(boost::format(
-                    "Range [%1.3d V,%1.3d V], delta-e %1.4d, sigma %1.4d")
-                % eMin % eMax % deltaE % broadening);
+    }
+    else if (modeFlag == PROFILE){
+        stm = stm::StmCube();
+        std::cout << "Reading z profile from " 
+            << modeParameter << "\n";
+        stm.readIgorFile(modeParameter);
+        this->title += " on z profile read from ";
+        this->title += modeParameter;
     }
 
     // Adjust z dimension for energy
     Uint newIncrementCount =(unsigned int) ((eMax - eMin)/deltaE) + 1;
     // Want to keep old z extent
     this->grid.directions[2].scaleVector(
-            Real(grid.directions[2].getIncrementCount())/
+            Real(grid.directions[2].getNElements())/
             Real(newIncrementCount));
     this->grid.directions[2] = 
         la::Direction(grid.directions[2].getIncrementVector(),
                 newIncrementCount);
     this->grid.originVector[2] = eMin;
     grid.data = std::vector<Real>(grid.countPoints(), 0.0);
-    this->broadening = broadening;
    
     return true;
 }
@@ -83,7 +90,13 @@ bool StsCube::calculate(){
         tempCube.readCubeFile();
         tempCube.squareValues();
         std::vector<Real> tempPlane;
-        tempCube.getZPlane(zIndex, tempPlane);
+
+        if(modeFlag == CONSTANT_Z){       
+           tempCube.getZPlane(zIndex, tempPlane);
+        }
+        else if(modeFlag == PROFILE){
+            this->interpolateOnZProfile(tempCube.grid, tempPlane);
+        }
         
         addLevel(tempPlane, cubeIt->energy); 
         ++cubeIt;
@@ -97,18 +110,42 @@ bool StsCube::calculate(){
     return true;
 }
 
+void StsCube::interpolateOnZProfile(
+        const formats::CubeGrid &grid,
+        std::vector<Real> &result) const { 
+    Uint nX = grid.directions[0].getNElements();
+    Uint nY = grid.directions[1].getNElements();
+    result.reserve(nX * nY);
+
+    Real dZ = grid.directions[2].getIncrementVector()[2];
+    std::vector<Real>::const_iterator zIt = this->stm.stm.begin();
+    Real valLow, valHigh, delta;
+    Uint zLow;
+    for(Uint x = 0; x < nX; ++x){
+        for(Uint y = 0; y < nY; ++y){
+            zLow = Uint(*zIt / dZ);
+            delta = (*zIt - zLow * dZ) / dZ; // Between 0 and 1
+            valLow = grid.getDataPoint(x, y, zLow);
+            valHigh = grid.getDataPoint(x, y, zLow + 1);
+
+            result.push_back(valLow * delta + valHigh * (1.0 - delta));
+
+            ++zIt;
+        }
+    }
+}
 
 
 void StsCube::addLevel(const std::vector<types::Real> &plane,
                types::Real energy){
     
-    Uint nEnergies = grid.directions[2].getIncrementCount();
+    Uint nEnergies = grid.directions[2].getNElements();
 
     // Gaussian stuff
     // \$ \frac{1}{\sigma \sqrt{2\pi} e^{-\frac{(x-\mu)^2}{2\sigma^2}} \$
     // = a e^{c(x-b)^2}
-    types::Real a = 1.0/(broadening * std::sqrt(2 * M_PI));
-    types::Real c = -1.0/(2 * broadening * broadening);
+    types::Real a = 1.0/(sigma * std::sqrt(2 * M_PI));
+    types::Real c = -1.0/(2 * sigma * sigma);
    
      std::vector<Real>::const_iterator 
          planeIt = plane.begin(),
@@ -133,8 +170,8 @@ void StmCube::setIsoLevel(types::Real isoValue){
 }
 
 bool StmCube::writeIgorFile(String fileName) const {
-    Uint nX = grid.directions[0].getIncrementCount();
-    Uint nY = grid.directions[1].getIncrementCount();
+    Uint nX = grid.directions[0].getNElements();
+    Uint nY = grid.directions[1].getNElements();
     std::vector<Real>::const_iterator stmIt = stm.begin();
 
     Stream result = "";
@@ -155,7 +192,6 @@ bool StmCube::readIgorFile(String fileName) {
     String content;
     io::readFile(fileName, content);
     
-    std::vector<Real> data;
     std::string::const_iterator it = content.begin(),
         end = content.end();
 
@@ -167,7 +203,7 @@ bool StmCube::readIgorFile(String fileName) {
         it,
         end,
         double_ % space,
-        data
+        stm
         )) throw types::parseError() << types::errinfo_parse("title or description");
 
    return true;

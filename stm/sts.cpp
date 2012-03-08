@@ -36,7 +36,7 @@ bool readLists(types::String levelFileName,
              types::Real eMin,
              types::Real eMax,
              types::Real deltaE,
-             types::Real broadening,
+             types::Real FWHM,
              stm::StsCube::ModeFlag modeFlag,
              types::String modeParameter);
 
@@ -46,7 +46,7 @@ bool insertEnergyLevels(
         formats::cp2k::Spectrum spectrum,
         types::Real eMin,
         types::Real eMax,
-        types::Real broadening);
+        types::Real sigma);
 
 /***********************************************
   Implementations
@@ -57,32 +57,25 @@ int main(int ac, char* av[]) {
     po::variables_map args;
     if (parse(ac, av, args)) {
 
+        // Process mode-related input
         stm::StsCube::ModeFlag modeFlag;
         String modeParameter;
         
         if (args["mode"].as< String >() == "constant_z"){
-            if(!args.count("height"))
-                std::cout << "Error: Need to specify 'height' for mode='constant_z'.\n";
-            else{
-                modeFlag = stm::StsCube::CONSTANT_Z;
-                modeParameter = args["height"].as< String >() ;
-            }
+            modeFlag = stm::StsCube::CONSTANT_Z;
+            modeParameter = args["height"].as< String >() ;
         } else if (args["mode"].as< String >() == "profile"){
-            if (!args.count("igor-file"))
-                std::cout << "Error: Need to specify 'igor-file' for mode='profile'.\n";
-            else{
-                modeFlag = stm::StsCube::PROFILE;
-                modeParameter = args["igor-profile"].as< String >() ;
-            }
+            modeFlag = stm::StsCube::PROFILE;
+            modeParameter = args["zprofile"].as< String >() ;
         }
-
+        
         readLists(args["levels"].as< types::String >(),
                 args["cubelist"].as< types::String >(),
                 args["out"].as< types::String >(),
                 args["emin"].as< types::Real >(),
                 args["emax"].as< types::Real >(),
                 args["delta-e"].as< types::Real >(),
-                args["broadening"].as< types::Real >(),
+                args["FWHM"].as< types::Real >(),
                 modeFlag,
                 modeParameter
                 );
@@ -98,7 +91,7 @@ bool readLists(types::String levelFileName,
              types::Real eMin,
              types::Real eMax,
              types::Real deltaE,
-             types::Real broadening,
+             types::Real FWHM,
              stm::StsCube::ModeFlag modeFlag,
              types::String modeParameter){
     using namespace types;
@@ -127,7 +120,7 @@ bool readLists(types::String levelFileName,
 
     }
     cubeListFile.close();
-    insertEnergyLevels(cubeList, spectrum, eMin, eMax, broadening);
+    insertEnergyLevels(cubeList, spectrum, eMin, eMax, FWHM);
 
     std::cout << "Done with preparation\n------------\n";
     stm::StsCube mySts = stm::StsCube(
@@ -135,7 +128,7 @@ bool readLists(types::String levelFileName,
         eMin,
         eMax,
         deltaE,
-        broadening,
+        FWHM,
         modeFlag,
         modeParameter);
     std::cout << "Writing STS cube file " << outFileName << "\n";
@@ -150,11 +143,11 @@ bool insertEnergyLevels(
         formats::cp2k::Spectrum spectrum,
         types::Real eMin,
         types::Real eMax,
-        types::Real broadening){
+        types::Real FWHM){
 
     std::list<formats::WfnCube> newCubeList;
     // We also take levels that are sigma*3 away from the border
-    types::Real delta = 3 * broadening;
+    types::Real delta = 3 * FWHM;
 
     for(Uint spin = 0; spin < spectrum.spins.size(); ++spin){
         at::EnergyLevels levels = spectrum.spins[spin];
@@ -212,11 +205,11 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     ("out", po::value<types::String>()->default_value("sts.cube"), "filename of sts cube file")
     ("emin", po::value<types::Real>(), "Minimum bias for STS")
     ("emax", po::value<types::Real>(), "Maximum bias for STS")
-    ("delta-e", po::value<types::Real>()->default_value(0.01), "Bias step for STS [eV]")
-    ("broadening", po::value<types::Real>()->default_value(0.2), "sigma of Gaussian broadening [eV]")
+    ("delta-e", po::value<types::Real>()->default_value(0.01), "Bias step for STS [V]")
+    ("FWHM", po::value<types::Real>()->default_value(0.2), "FWHM of Gaussian broadening [V]. FWHM = 2.355 sigma.")
     ("mode", po::value<types::String>()->default_value("constant_z"), "Scanning mode, may be 'constant_z' or 'read_profile'")
     ("height", po::value<types::String>(), "Height [a0] above top surface, where STS shall be performed (mode = 'constant_z')")
-    ("igor-profile", po::value<types::String>(), "File containing the z profile (a.u.) on which to perform the STS, e.g. STM profile (mode = 'profile')")
+    ("zprofile", po::value<types::String>(), ".igor file containing the z profile (a.u.) on which to perform the STS, e.g. STM profile (mode = 'profile')")
     ;
 
     // Register positional options
@@ -243,16 +236,17 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
             !vm.count("emax") ||
             !vm.count("emin") ||
             !vm.count("delta-e") ||
-            !vm.count("broadening") ||
+            !vm.count("FWHM") ||
             !vm.count("mode")
        ){
         std::cout << "Usage: sts [options]\n";
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
         std::cout << "Mar 1st 2012\n";
-    } else if (vm["mode"].as< String >() != "constant_z" &&
-               vm["mode"].as< String >() != "profile") {
-        std::cout << "Error: Unknown value for option 'mode'\n";
+    } else if (vm["mode"].as< String >() == "constant_z" && !vm.count("height")) {
+                std::cout << "Error: Need to specify 'height' for mode='constant_z'.\n";
+    } else if (vm["mode"].as< String >() == "profile" && !vm.count("zprofile")) {
+                std::cout << "Error: Need to specify 'zprofile' for mode='profile'.\n";
     } else if (vm["emin"].as< Real >() > vm["emax"].as< Real >()){
         std::cout << "Error: emin > emax\n";
     } else {
