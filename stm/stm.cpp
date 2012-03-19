@@ -123,10 +123,10 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
             !vm.count("cubelist") ||
             !vm.count("isovalues")
        ){
-        std::cout << "Usage: sts [options]\n";
+        std::cout << "Usage: stm [options]\n";
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
-        std::cout << "Mar 1st 2012\n";
+        std::cout << "Mar 8th 2012\n";
     } else {
         return true;
     }

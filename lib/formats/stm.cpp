@@ -60,16 +60,26 @@ bool StsCube::initialize(){
 
     // Adjust z dimension for energy
     Uint newIncrementCount =(unsigned int) ((eMax - eMin)/deltaE) + 1;
-    // Want to keep old z extent
-    this->grid.directions[2].scaleVector(
-            Real(grid.directions[2].getNElements())/
-            Real(newIncrementCount));
-    this->grid.directions[2] = 
-        la::Direction(grid.directions[2].getIncrementVector(),
-                newIncrementCount);
-    this->grid.originVector[2] = eMin;
+
+    if(this->cubeZ == 0){
+        // Per default we simply keep the old z extent
+        this->grid.directions[2].scaleVector(
+                Real(grid.directions[2].getNElements())/
+                Real(newIncrementCount));
+        this->grid.directions[2] = 
+            la::Direction(grid.directions[2].getIncrementVector(),
+                    newIncrementCount);
+    }
+    else{
+        // Else the new extent is cubeZ atomic units
+        Real newDZ = this->cubeZ / newIncrementCount;
+        std::vector<Real> v; v.push_back(0); v.push_back(0); v.push_back(newDZ);
+        this->grid.directions[2] = la::Direction(v, newIncrementCount);
+        this->grid.originVector[2] = 
+            eMin / (eMax - eMin) * cubeZ;
+    }
     grid.data = std::vector<Real>(grid.countPoints(), 0.0);
-   
+
     return true;
 }
 

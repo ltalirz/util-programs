@@ -38,7 +38,8 @@ bool readLists(types::String levelFileName,
              types::Real deltaE,
              types::Real FWHM,
              stm::StsCube::ModeFlag modeFlag,
-             types::String modeParameter);
+             types::String modeParameter,
+             types::Real cubeZ);
 
 // Inserts info about energy levels in cube file descriptions
 bool insertEnergyLevels( 
@@ -77,7 +78,8 @@ int main(int ac, char* av[]) {
                 args["delta-e"].as< types::Real >(),
                 args["FWHM"].as< types::Real >(),
                 modeFlag,
-                modeParameter
+                modeParameter,
+                args["cubez"].as< types::Real >()
                 );
 
     }
@@ -93,7 +95,8 @@ bool readLists(types::String levelFileName,
              types::Real deltaE,
              types::Real FWHM,
              stm::StsCube::ModeFlag modeFlag,
-             types::String modeParameter){
+             types::String modeParameter,
+             types::Real cubeZ){
     using namespace types;
 
     // Read energy levels
@@ -130,7 +133,8 @@ bool readLists(types::String levelFileName,
         deltaE,
         FWHM,
         modeFlag,
-        modeParameter);
+        modeParameter,
+        cubeZ);
     std::cout << "Writing STS cube file " << outFileName << "\n";
     mySts.writeCubeFile(outFileName);
     
@@ -205,6 +209,7 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     ("out", po::value<types::String>()->default_value("sts.cube"), "filename of sts cube file")
     ("emin", po::value<types::Real>(), "Minimum bias for STS")
     ("emax", po::value<types::Real>(), "Maximum bias for STS")
+    ("cubez", po::value<types::Real>()->default_value(0.0), "z-dimension [a0] of cube file to create")
     ("delta-e", po::value<types::Real>()->default_value(0.01), "Bias step for STS [V]")
     ("FWHM", po::value<types::Real>()->default_value(0.2), "FWHM of Gaussian broadening [V]. FWHM = 2.355 sigma.")
     ("mode", po::value<types::String>()->default_value("constant_z"), "Scanning mode, may be 'constant_z' or 'read_profile'")

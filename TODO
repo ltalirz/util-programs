@@ -17,7 +17,10 @@
 
 - replace Grid::sum() by Kahan sum
 
-
+- stm: Doing sts with energetic broadening on an stm-profile (without energetic
+  broadening) is not internally consistent.
+  In sumbias I should also admix states (with an erf prefactor or similar) that 
+  are outside the bias window.
 Done:
 - Change incrementCount ind la::Direction to pointCount or somthing similar
 - la: replace Grid by template<unsigned int dim> Grid   One might think of a specialization CubeGrid and move the convenience

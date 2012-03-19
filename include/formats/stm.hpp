@@ -55,6 +55,7 @@ class StsCube : public formats::Cube {
         types::Real sigma;
         ModeFlag modeFlag;
         types::String modeParameter;
+        types::Real cubeZ;
        
         bool initialize(); 
         void addLevel(
@@ -69,14 +70,16 @@ class StsCube : public formats::Cube {
             types::Real deltaE,
             types::Real Fwhm,
             ModeFlag modeFlag,
-            types::String modeParameter) :
+            types::String modeParameter,
+            types::Real cubeZ) :
             levels(levels),
             eMin(eMin), 
             eMax(eMax), 
             deltaE(deltaE), 
             sigma(Fwhm/2.355),
             modeFlag(modeFlag),
-            modeParameter(modeParameter)
+            modeParameter(modeParameter),
+            cubeZ(cubeZ)
     {       calculate();             }
         StsCube(){};
 
