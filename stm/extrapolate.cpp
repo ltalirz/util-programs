@@ -124,11 +124,10 @@ bool prepare(types::String levelFileName,
     // Write z plane of hartree potential for gnuplot
     std::vector<types::Real> hartreePlane;
     hartree.getZPlane(zStartIndex, hartreePlane);
-    std::cout << hartreePlane[20] << "plane\n";
     types::String s = formats::gnuplot::writeMatrix(
             hartreePlane,
-            hartree.grid.directions[0].getIncrementCount(),
-            hartree.grid.directions[1].getIncrementCount());
+            hartree.grid.directions[0].getNElements(),
+            hartree.grid.directions[1].getNElements());
     io::writeStream("hartree.zplane",s);
 
 
@@ -177,10 +176,9 @@ bool extrapolate(
     std::cout << "Time to read cube : " << (clock() -t)/1000.0 << " ms\n";
     
     wfn.energy = spectrum.spins[wfn.spin -1].getLevel(wfn.wfn);
-    types::Uint nX = wfn.grid.directions[0].getIncrementCount(),
-                nY = wfn.grid.directions[1].getIncrementCount(),
+    types::Uint nX = wfn.grid.directions[0].getNElements(),
+                nY = wfn.grid.directions[1].getNElements(),
                 nZ = endIndex;
-
     wfn.grid.resize(nX, nY, nZ);
     Array<types::Real,3> dataArray(
         &wfn.grid.data[0],
@@ -222,7 +220,7 @@ bool extrapolate(
     Array<types::Real,2> prefactors(nXF, nYF);
     // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
     types::Real energyTerm = 2 * wfn.energy;
-    std::cout << "EnergyTerm " << energyTerm << std::endl;
+    std::cout << "Energy level " << wfn.energy << " Ha\n";
     types::Real deltaZ = wfn.grid.directions[2].getIncrementVector()[2];
     la::Cell cell = la::Cell(wfn.grid.directions);
     vector<types::Real> X = cell.vector(0);

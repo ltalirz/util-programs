@@ -20,6 +20,8 @@ struct CubeGrid : public la::Grid<3> {
 //    void interpolatedZPlane(const std::vector<Real> &zProfile,
 //            std::vector<types::Real> &plane);
     void averageXY(std::vector<types::Real>& reduced) const;
+    void dirSum(types::Uint dirIndex, std::vector<types::Real>& plane) const;
+    void dirAverage(types::Uint dirIndex, std::vector<types::Real>& plane) const;
     void zIsoSurface(types::Real isoValue, std::vector<types::Real> &coordinates) const; 
     /**
      * In lack of a proper resampling method. No new values are calculated
@@ -36,6 +38,8 @@ struct CubeGrid : public la::Grid<3> {
     types::Real getDataPoint(types::Uint x, types::Uint y, types::Uint z) const;
     types::Real interpolateZData(types::Uint x, types::Uint y, types::Real z) const;
 
+    void writeDirPlane(types::String fileName, const std::vector<types::Real>& data, types::Uint dir) const;
+    void writePlane(types::String fileName, const std::vector<types::Real>& data, types::Uint i, types::Uint j) const;
 private:
 };
 
@@ -103,12 +107,17 @@ struct WfnCube : public Cube {
 
     void setEnergy(types::Real e){ energy = e; }
     types::Real getEnergy() { return energy; }
+
+    WfnCube(){}; 
+    WfnCube(const Cube& c){ 
+        atoms=c.atoms;
+        grid=c.grid;
+        title=c.title;
+        description=c.description;
+        fileName=c.fileName;
+    }
 };
 
 
-
-
-
 }
-
 #endif

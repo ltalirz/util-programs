@@ -56,6 +56,7 @@ class StsCube : public formats::Cube {
         ModeFlag modeFlag;
         types::String modeParameter;
         types::Real cubeZ;
+        bool psiSquared;
        
         bool initialize(); 
         void addLevel(
@@ -71,7 +72,8 @@ class StsCube : public formats::Cube {
             types::Real Fwhm,
             ModeFlag modeFlag,
             types::String modeParameter,
-            types::Real cubeZ) :
+            types::Real cubeZ,
+            bool psiSquared) :
             levels(levels),
             eMin(eMin), 
             eMax(eMax), 
@@ -79,7 +81,8 @@ class StsCube : public formats::Cube {
             sigma(Fwhm/2.355),
             modeFlag(modeFlag),
             modeParameter(modeParameter),
-            cubeZ(cubeZ)
+            cubeZ(cubeZ),
+            psiSquared(psiSquared)
     {       calculate();             }
         StsCube(){};
 

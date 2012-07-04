@@ -16,6 +16,7 @@ time_t t = clock();
 
 namespace po = boost::program_options;
 namespace at = atomistic;
+namespace units= at::units;
 namespace stm = formats::stm;
 using namespace types;
 
@@ -39,7 +40,8 @@ bool readLists(types::String levelFileName,
              types::Real FWHM,
              stm::StsCube::ModeFlag modeFlag,
              types::String modeParameter,
-             types::Real cubeZ);
+             types::Real cubeZ,
+             bool psiSquared);
 
 // Inserts info about energy levels in cube file descriptions
 bool insertEnergyLevels( 
@@ -62,12 +64,12 @@ int main(int ac, char* av[]) {
         stm::StsCube::ModeFlag modeFlag;
         String modeParameter;
         
-        if (args["mode"].as< String >() == "constant_z"){
+        if (args["mode"].as< String >() == "constant-z"){
             modeFlag = stm::StsCube::CONSTANT_Z;
             modeParameter = args["height"].as< String >() ;
-        } else if (args["mode"].as< String >() == "profile"){
+        } else if (args["mode"].as< String >() == "z-profile"){
             modeFlag = stm::StsCube::PROFILE;
-            modeParameter = args["zprofile"].as< String >() ;
+            modeParameter = args["z-profile"].as< String >() ;
         }
         
         readLists(args["levels"].as< types::String >(),
@@ -79,7 +81,8 @@ int main(int ac, char* av[]) {
                 args["FWHM"].as< types::Real >(),
                 modeFlag,
                 modeParameter,
-                args["cubez"].as< types::Real >()
+                args["cubez"].as< types::Real >(),
+                args["psisquared"].as< bool >()
                 );
 
     }
@@ -96,7 +99,8 @@ bool readLists(types::String levelFileName,
              types::Real FWHM,
              stm::StsCube::ModeFlag modeFlag,
              types::String modeParameter,
-             types::Real cubeZ){
+             types::Real cubeZ,
+             bool psiSquared){
     using namespace types;
 
     // Read energy levels
@@ -134,7 +138,8 @@ bool readLists(types::String levelFileName,
         FWHM,
         modeFlag,
         modeParameter,
-        cubeZ);
+        cubeZ,
+        psiSquared);
     std::cout << "Writing STS cube file " << outFileName << "\n";
     mySts.writeCubeFile(outFileName);
     
@@ -206,15 +211,16 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     ("input-file,i", po::value<types::String>(&input_file), "Input file specifying all or several of the following options")
     ("levels", po::value<types::String>(), "CP2K output file containing energy levels")
     ("cubelist", po::value<types::String>(), "file with list of extrapolated wave function cubes from CP2K")
+    ("psisquared", po::value<bool>()->default_value(false), "Whether the cube files contain the square of the wave function (and not the wave function itself)")
     ("out", po::value<types::String>()->default_value("sts.cube"), "filename of sts cube file")
-    ("emin", po::value<types::Real>(), "Minimum bias for STS")
-    ("emax", po::value<types::Real>(), "Maximum bias for STS")
+    ("emin", po::value<types::Real>(), "Minimum bias for STS [V]")
+    ("emax", po::value<types::Real>(), "Maximum bias for STS [V]")
     ("cubez", po::value<types::Real>()->default_value(0.0), "z-dimension [a0] of cube file to create")
     ("delta-e", po::value<types::Real>()->default_value(0.01), "Bias step for STS [V]")
     ("FWHM", po::value<types::Real>()->default_value(0.2), "FWHM of Gaussian broadening [V]. FWHM = 2.355 sigma.")
-    ("mode", po::value<types::String>()->default_value("constant_z"), "Scanning mode, may be 'constant_z' or 'read_profile'")
-    ("height", po::value<types::String>(), "Height [a0] above top surface, where STS shall be performed (mode = 'constant_z')")
-    ("zprofile", po::value<types::String>(), ".igor file containing the z profile (a.u.) on which to perform the STS, e.g. STM profile (mode = 'profile')")
+    ("mode", po::value<types::String>()->default_value("constant-z"), "Scanning mode, may be 'constant-z' or 'z-profile'")
+    ("height", po::value<types::String>(), "Height [a0] above top surface, where STS shall be performed (mode = 'constant-z')")
+    ("z-profile", po::value<types::String>(), ".igor file containing the z-profile [a.u.] on which to perform the STS, e.g. STM profile (mode = 'z-profile')")
     ;
 
     // Register positional options
@@ -248,9 +254,9 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
         std::cout << "Mar 1st 2012\n";
-    } else if (vm["mode"].as< String >() == "constant_z" && !vm.count("height")) {
-                std::cout << "Error: Need to specify 'height' for mode='constant_z'.\n";
-    } else if (vm["mode"].as< String >() == "profile" && !vm.count("zprofile")) {
+    } else if (vm["mode"].as< String >() == "constant-z" && !vm.count("height")) {
+                std::cout << "Error: Need to specify 'height' for mode='constant-z'.\n";
+    } else if (vm["mode"].as< String >() == "z-profile" && !vm.count("z-profile")) {
                 std::cout << "Error: Need to specify 'zprofile' for mode='profile'.\n";
     } else if (vm["emin"].as< Real >() > vm["emax"].as< Real >()){
         std::cout << "Error: emin > emax\n";

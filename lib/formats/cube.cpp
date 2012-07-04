@@ -6,6 +6,8 @@
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/spirit/include/phoenix_operator.hpp>
 
+#include <boost/format.hpp>
+
 #include <blitz/array.h>
 
 #include <fstream>
@@ -478,6 +480,40 @@ void CubeGrid::averageXY(std::vector<Real>& reduced) const {
 
 }
 
+void CubeGrid::dirSum(Uint dirIndex, std::vector<Real>& plane) const {
+    using namespace blitz;
+    namespace t = tensor;
+
+    Array<Real,3> dataArray(const_cast<Real*>(&data[0]), shape(directions[0].getNElements(), directions[1].getNElements(), directions[2].getNElements()));
+    // reduce a dimension
+    if(dirIndex == 0) {
+        Array<Real, 2>
+            blitzPlane(blitz::sum(dataArray(t::k, t::i, t::j), t::k));
+        plane.assign(blitzPlane.begin(), blitzPlane.end());
+    } else if(dirIndex == 1) {
+        Array<Real, 2>
+            blitzPlane(blitz::sum(dataArray(t::i, t::k, t::j), t::k));
+        plane.assign(blitzPlane.begin(), blitzPlane.end());
+    } else if(dirIndex == 2) {
+        Array<Real, 2>
+            blitzPlane(blitz::sum(dataArray(t::i, t::j, t::k), t::k));
+        blitzPlane = blitzPlane(t::j, t::i);
+        plane.assign(blitzPlane.begin(), blitzPlane.end());
+    } else {
+        throw types::runtimeError() << types::errinfo_runtime("Direction index out of bounds.");
+    }
+}
+
+void CubeGrid::dirAverage(Uint dirIndex, std::vector<Real>& plane) const {
+    dirSum(dirIndex, plane);
+    Uint nPlanes = directions[dirIndex].getNElements();
+
+    std::vector<Real>::iterator it;
+    for(it = plane.begin(); it!= plane.end(); ++it) {
+        *it /= nPlanes;
+    }
+}
+
 Real Cube::topZCoordinate() const{
     
     // Get highest z coordinate
@@ -494,6 +530,36 @@ Real Cube::topZCoordinate() const{
 
     return zTop;
 }
+
+void CubeGrid::writeDirPlane(types::String fileName, const std::vector<types::Real>& data, types::Uint dir) const {
+    Uint i, j;
+    switch (dir) {
+        case 0: i=1, j=2; break;
+        case 1: i=0, j=2; break;
+        case 2: i=0, j=1; break;
+    }
+
+    writePlane(fileName, data, i, j);
+}
+
+void CubeGrid::writePlane(String fileName, const std::vector<Real>& data, Uint i, Uint j) const {
+    std::vector<Real>::const_iterator planeIt = data.begin();
+    Uint nX = directions[i].getNElements();
+    Uint nY = directions[j].getNElements();
+
+    Stream result = "";
+    for(Uint x = 0; x<nX; ++x){
+        for(Uint y=0; y<nY; ++y){
+            result += str(boost::format("%12.6e") % *planeIt);
+            result += " ";
+            ++planeIt;
+        }
+        result += "\n";
+    }
+
+    io::writeStream(fileName, result);
+}
+
 
 void CubeGrid::zIsoSurface(
         types::Real isoValue, 
@@ -529,10 +595,19 @@ void CubeGrid::zIsoSurface(
             --dataIt;
             --z;
         }
-        if(dataIt == dataStop) throw types::runtimeError() 
+        if(dataIt == dataStop){
+#ifdef FORMATS_STM_STRICT
+            throw types::runtimeError() 
                     << types::errinfo_runtime("Missed an isosurface value");
+#else
+            std::cout << "Missed an isosurface value. Put 0 instead.\n";
+            surface.push_back(0);
+#endif
+        }
     }
 }
+
+
 
 }
 

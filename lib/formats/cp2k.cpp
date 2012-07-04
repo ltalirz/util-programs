@@ -77,13 +77,17 @@ bool Spectrum::readFromCp2k(String filename) {
         boost::regex("Eigenvalues of the unoccupied subspace spin.*?iterations([\\.\\-\\d\\s]*)"));
     RegIt dummyIt;
 
+    bool hasUnocc = (unoccIt != dummyIt);
+
 
     Regex fermiRegex("\\-?\\d\\.\\d{6}");
     Regex levelRegex("\\-?\\d\\.\\d{8}");
 
     // Iterate over spins
     while(occIt != dummyIt) {
-        String levelData = occIt->str().append(unoccIt->str());
+        String levelData = occIt->str();
+        // Unoccupied levels are optional
+        if(hasUnocc) levelData.append(unoccIt->str());
         std::vector<Real> levels;
         RegIt levelIt(levelData.begin(), levelData.end(), levelRegex);
         while(levelIt != dummyIt) {
@@ -101,9 +105,12 @@ bool Spectrum::readFromCp2k(String filename) {
         this->spins.push_back(energyLevels);
 
         ++occIt;
-        ++unoccIt;
+        if(hasUnocc) ++unoccIt;
         ++fermiIt;
     }
+
+    if(this->spins.size() == 0) 
+        throw types::parseError() << types::errinfo_parse("No energy levels found in file.");
 
     return true;
 }

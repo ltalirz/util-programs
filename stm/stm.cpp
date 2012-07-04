@@ -31,7 +31,8 @@ bool parse(int ac, char* av[], po::variables_map& vm);
 // and calls sum
 bool doStm(
         types::String cubeListFileName,
-        std::vector<Real> isoValues
+        std::vector<Real> isoValues,
+        bool psisquared
         );
 
 /***********************************************
@@ -44,7 +45,8 @@ int main(int ac, char* av[]) {
     if (parse(ac, av, args)) {
         doStm(
                 args["cubelist"].as< types::String >(),
-                args["isovalues"].as< std::vector<Real> >()
+                args["isovalues"].as< std::vector<Real> >(),
+                args["psisquared"].as< bool >()
            );
     }
 
@@ -52,7 +54,8 @@ int main(int ac, char* av[]) {
 }
 
 
-bool doStm(types::String cubeListFileName, std::vector<Real> isoValues){
+bool doStm(types::String cubeListFileName, std::vector<Real> isoValues,
+        bool psisquared){
     using namespace types;
 
     // Read cube files
@@ -99,6 +102,7 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     ("input-file,i", po::value<types::String>(&input_file), "Input file specifying all or several of the following options")
     ("cubelist", po::value<types::String>(), "file with list of extrapolated wave function cubes from CP2K")
     ("isovalues", po::value< std::vector<Real> >()->multitoken(), "The isovalues for the STM image. 1E-7 is typically a good start.")
+    ("psisquared", po::value<bool>()->default_value(false), "Whether the cube files contain the square of the wave function (and not the wave function itself)")
     ;
 
     // Register positional options
@@ -126,7 +130,7 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
         std::cout << "Usage: stm [options]\n";
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
-        std::cout << "Mar 8th 2012\n";
+        std::cout << "April 23rd 2012\n";
     } else {
         return true;
     }

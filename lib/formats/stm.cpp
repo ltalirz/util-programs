@@ -98,7 +98,7 @@ bool StsCube::calculate(){
         std::cout<< "Processing " << cubeIt->fileName << "\n";
         tempCube = *cubeIt;
         tempCube.readCubeFile();
-        tempCube.squareValues();
+        if(!this->psiSquared) tempCube.squareValues();
         std::vector<Real> tempPlane;
 
         if(modeFlag == CONSTANT_Z){       
@@ -115,7 +115,7 @@ bool StsCube::calculate(){
     std::cout<< "Done processing cube files...\n\n";
 
     // Normalize sum, s.th. values are, on average, 1
-    grid *= Real(grid.countPoints()) / grid.sum();
+    //grid *= Real(grid.countPoints()) / grid.sum();
 
     return true;
 }
@@ -175,7 +175,8 @@ void StsCube::addLevel(const std::vector<types::Real> &plane,
 }
 
 void StmCube::setIsoLevel(types::Real isoValue){
-    getZIsoSurface(isoValue, stm);
+    this->stm.clear();
+    getZIsoSurface(isoValue, this->stm);
     this->isoLevel = isoValue;
 }
 

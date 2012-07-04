@@ -12,7 +12,7 @@ class Test {
 
 void Test::mapBlitz() const{
     using namespace blitz;
-    const Array<double,1> vecArray(&v[0], shape(v.size()), neverDeleteData);
+    const Array<double,1> vecArray(const_cast<double*>(&v[0]), shape(v.size()), neverDeleteData);
 }
 void testConst(){
     Test t = Test();
@@ -209,6 +209,65 @@ void reduceTensor() {
          << count(A >= 4) << endl;  // 5
 }
 
+// When partially reducing a multidimensional array,
+// the storage order is correctly as indicated by the indices.
+void reduceOrder() {
+    using namespace blitz;
+    Array<float,3> A(2,2,2);
+    A = 0, 1, 2, 3, 4, 5, 6, 7;
+    std::vector<float> vA; vA.assign(A.begin(), A.end());
+    std::vector<float>::const_iterator beginA = vA.begin(), endA = vA.end();
+
+    cout << "Storage order in data: ";
+    while(beginA != endA){
+        std::cout << *beginA<< " ";
+        ++beginA;
+    }
+    cout << endl;
+
+    // Fastest direction should be z, then y, then x
+
+    cout << A;
+    //Array<float,2> B(2,2);
+    Array<float,2> B;// = Array<float,2>();
+    //Array<float,2> B(sum(A(tensor::i,tensor::k, tensor::j),tensor::k),
+            //RowMajorArray<2>);
+//    B = sum(A(tensor::i,tensor::k, tensor::j),tensor::k);
+    firstIndex i; secondIndex j; thirdIndex k;
+    B = blitz::sum(A, k);
+
+
+    // Since y is reduced, this should yield 
+    // x/z  1     2
+    // 1   0+2    1+3
+    // 2   4+6    5+7
+    cout << B;
+    std::vector<float> v; v.assign(B.begin(), B.end());
+    std::vector<float>::const_iterator begin = v.begin(), end = v.end();
+
+    cout << "Storage order in data: ";
+    while(begin != end){
+        std::cout << *begin << " ";
+        ++begin;
+    }
+    cout << endl;
+    
+}
+
+void testManual(){
+    using namespace blitz;
+    Array<float,3> A(2,2);   // ...
+    A = 0, 1, 2, 3;
+    Array<float,1> B;   // ...
+    firstIndex i;
+    secondIndex j;
+    thirdIndex k;
+
+    // Reduce over dimension 2 of a 3-D array?
+    B = sum(A(i,j), j);
+    cout << B;
+}
+
 int main() {
     unsigned int size = 20;
 //  doubleReuseVector(size);
@@ -220,6 +279,8 @@ int main() {
 //  tensorRange(size);
 //  tensorSelf(size);
 //  operatorDiv(size);
-    stride(size);
+//  stride(size);
+//  reduceOrder();
+    testManual();
     return 0;
 }

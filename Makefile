@@ -12,7 +12,7 @@ CFLAGS += -I ./$(INCDIR)
 ##### Dependencies
 BASIC      = io la
 ATOMISTIC  = $(addprefix atomistic/, fundamental)
-FORMATS    = $(addprefix formats/, cp cp2k cube xyz gnuplot stm)
+FORMATS    = $(addprefix formats/, cp cp2k cube espresso xyz gnuplot stm)
 
 COMPONENTS = $(BASIC) $(ATOMISTIC) $(FORMATS)
 INCDEP     = $(addprefix $(INCDIR)/, $(addsuffix .hpp, $(COMPONENTS)))
@@ -20,14 +20,15 @@ LIBDEP     = $(addprefix $(LIBDIR)/, $(addsuffix .o, $(COMPONENTS)))
 
 ##### Programs
 STMPROGS   = extrapolate sumbias sts stm
-UTILPROGS  = cubestride cubescale cubesquare cuberoot cubeabs
+UTILPROGS  = cubestride cubescale cubesquare cuberoot cubeabs cubezprofile
+UTILPROGS += cubediravg
 
 
 # Test targets are made like: make test/regex
 TEST       = fftw fftw-2 stl blitz inherit karma progress po core
 TESTTARGETS   = $(addprefix test/, $(TEST))
 # These targets may depend on my library
-TESTLIB    = regex qi qi-stack qi-cptime read write la readcp types p stm
+TESTLIB    = regex qi qi-stack qi-cptime read write la readcp types p stm readesp
 TESTLIBTARGETS   = $(addprefix test/, $(TESTLIB))
 TESTMPI    = mpi
 TESTMPITARGETS   = $(addprefix test/, $(TESTLIB))
