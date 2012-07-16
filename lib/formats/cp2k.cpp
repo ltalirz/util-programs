@@ -115,6 +115,9 @@ bool Spectrum::readFromCp2k(String filename) {
     return true;
 }
 
+Real Spectrum::getLevel(Uint nSpin, Uint nLevel) const {
+    return spins[nSpin -1].getLevel(nLevel);
+}
 
 }
 }

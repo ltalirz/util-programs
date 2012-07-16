@@ -24,6 +24,7 @@ struct Spectrum {
     void shift(types::Real deltaE);
     void setFermiZero();
     atomistic::EnergyLevels sumSpins() const;
+    types::Real getLevel(types::Uint nSpin, types::Uint nLevel) const;
 };
 
 

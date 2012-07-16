@@ -84,12 +84,18 @@ struct Cube {
 	types::Uint countPoints() const;
 
     void setTitle(types::String t) { title=t;}
-    types::String getTitle() { return title;}
+    types::String getTitle() const { return title;}
     void setDescription(types::String d) { description=d;}
-    types::String getDescription() { return description;}
+    types::String getDescription() const { return description;}
     void setGrid(const CubeGrid &g) { grid = g;}
     const CubeGrid & getGrid() { return grid;}
+    void setFileName(types::String fileName) { this->fileName = fileName; }
+    types::String getFileName() const { return this->fileName; }
 
+
+    types::Uint nX() const  { return grid.directions[0].getNElements(); }
+    types::Uint nY() const  { return grid.directions[1].getNElements(); }
+    types::Uint nZ() const  { return grid.directions[2].getNElements(); }
 };
 
 /**

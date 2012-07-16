@@ -1,4 +1,4 @@
-include make-ipazia-login.sys
+include make.sel
 
 ##### Flags
 INCDIR     = include

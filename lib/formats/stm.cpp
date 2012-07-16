@@ -1,14 +1,20 @@
 #include "formats/cube.hpp"
 #include "formats/stm.hpp"
+#include "atomistic/fundamental.hpp"
 #include "types.hpp"
 #include "io.hpp"
 #include <cmath>
+
 #include <ctime>
 
 #include <boost/format.hpp>
 #include <boost/spirit/include/qi_core.hpp>
 #include <boost/spirit/include/qi_eol.hpp>
 #include <boost/lexical_cast.hpp>
+
+#include <blitz/array.h>
+
+#include <fftw3.h>
 
 namespace formats {
 namespace stm {
@@ -222,175 +228,233 @@ bool StmCube::readIgorFile(String fileName) {
 } 
 
 WfnExtrapolation::WfnExtrapolation(
-        const cp2k::Spectrum& spectrum,
         types::String fileName,
-        Mode          mode,
-        types::Real   var1,
-        types::Real   var2){
-    if ( mode == constantZ ) WfnExtrapolation(
-            fileName,
-            spectrum,
-            hartree,
-            mode,
-            var1,
-            var2,
-            0.0);
-    else                     WfnExtrapolation(
-            fileName,
-            spectrum,
-            hartree,
-            mode,
-            0.0,
-            var2,
-            var1);
-}
-
-WfnExtrapolation::wfnExtrapolation(types::String fileName,
         const cp2k::Spectrum& spectrum,
         const Cube&   hartree ,
-        int           mode    ,
-        types::Uint   zStart  ,
-        types::Uint   zWidth  ,
-        types::Real   isoLevel){
+        Mode          mode    ,
+        types::Real   var1    ,
+        types::Real   zWidth  ){
     wfn     = WfnCube();  
+    time_t t = clock();
     wfn.readCubeFile(fileName.c_str()); 
-    wfn.setEnergy(spectrum.spind[wfn.getSpin() - 1][wfn.getLevel()]);
+    std::cout << "Time to read cube : " << (clock() -t)/1000.0 << " ms\n";
+    wfn.setEnergy( spectrum.getLevel(wfn.getSpin(), wfn.getLevel()) );
 
-    this->hartree = hartree;
+    this->hartree = &hartree;
     this->mode    = mode;
-    this->zStart  = zStart;
+    if ( mode == constantZ ) this->isoValue = var1;
+    else                     this->zStart   = var1;
     this->zWidth  = zWidth;
-    this->isoLevel= isoLevel;
 }
 
 void WfnExtrapolation::execute(){
     using namespace blitz;
-   
-    std::cout << "--------\n Extrapolating " << cubeFile << "\n";
+    time_t t;
 
-    t = clock();
-    std::cout << "Time to read cube : " << (clock() -t)/1000.0 << " ms\n";
+    std::cout << "--------\n Extrapolating " << wfn.getFileName() << "\n";
+ 
+    this->determineRange();
     
-//    types::Uint nX = wfn.grid.directions[0].getNElements(),
-//                nY = wfn.grid.directions[1].getNElements(),
-//                nZ = endIndex;
-//    wfn.grid.resize(nX, nY, nZ);
-//    Array<types::Real,3> dataArray(
-//        &wfn.grid.data[0],
-//        shape(nX, nY, nZ),
-//        neverDeleteData);
-//
-//    // Produce z profile
-//    std::string zProfile = io::getFileName(cubeFile);
-//    formats::WfnCube wfnSq = wfn;
-//    wfnSq.grid.squareValues();
-//    zProfile += ".zprofile";
-//    std::cout << "Writing Z profile to " << zProfile << std::endl;
-//    wfnSq.writeZProfile(zProfile, "Z profile of sqared wave function\n");
-//
-//    // Get z-plane for interpolation
-//    Array<types::Real,2> planeDirect(nX, nY);
-//    planeDirect = dataArray(Range::all(), Range::all(), startIndex);
-//
-//    // Do a real 2 complex fft
-//    // Since a(-k)=a(k)^* (or in terms of indices: a[n-k]=a[k]^*)
-//    // only a[k], k=0...n/2+1 (division rounded down) are retained
-//    types::Uint nXF = nX, nYF = nY/2 + 1;
-//    fftw_complex *out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nXF * nYF);
-//    fftw_plan plan_forward = fftw_plan_dft_r2c_2d(nX, nY, planeDirect.data(), out, FFTW_ESTIMATE);
-//    fftw_execute(plan_forward);
-//
-//    Array<types::Complex,2> planeFourier(
-//        reinterpret_cast<types::Complex *>(out),
-//        shape(nXF, nYF),
-//        neverDeleteData);
-//
-//    // Calculate the exponential prefactors.
-//    // Multiplication of Fourier coefficients with these prefactors
-//    // propagates them to next z plane.
-//    // The prefectors would only need dimensions (nX/2 +1, nY/2 +1)
-//    // since they are the same for G and -G. However for the sake of
-//    // simplicity of calculation, we prepare them here for (nX, nY/2+1) = (nXF,nYF).
-//    t = clock();
-//    Array<types::Real,2> prefactors(nXF, nYF);
-//    // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
-//    types::Real energyTerm = 2 * wfn.energy;
-//    std::cout << "Energy level " << wfn.energy << " Ha\n";
-//    types::Real deltaZ = wfn.grid.directions[2].getIncrementVector()[2];
-//    la::Cell cell = la::Cell(wfn.grid.directions);
-//    vector<types::Real> X = cell.vector(0);
-//    vector<types::Real> Y = cell.vector(1);
-//    types::Real dKX = 2 * M_PI / X[0];
-//    types::Real dKY = 2 * M_PI / Y[1];
-//
-//    // Notice that the order of storage is 0...G -G...-1 for uneven nX
-//    // and 0...G-1 G -(G-1)...-1 for even NX
-//    prefactors( Range(0, nXF/2), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
-//    // tensor::i always starts from 0, i.e. it ranges from 0...nXF/2-1 (nX even) or 0...nXF/2 (nX uneven)
-//    if(nX % 2 == 1)
-//            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
-//    else
-//            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 -1 - tensor::i) * dKX * (nXF/2 - 1 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
-//
-//
-////    // Produce Fourier coefficient for gnuplot    
-////    types::Complex *pt =  reinterpret_cast<types::Complex *>(out);
-////    for(types::Uint i = 0; i < nXF; ++i){
-////            for(types::Uint j = 0;j< nYF; ++j){
-////                    std::cout << std::abs(*pt) << " ";
-////                    ++pt;
-////            }
-////            std::cout << std::endl;
-////    }
-//
-//    // Sequentially update the cube file
-//    Array<types::Real,2> tempDirect(nX, nY);
-//    Array<types::Complex,2> tempFourier(nXF, nYF);
-//    fftw_plan plan_backward;
-//    for(int zIndex = startIndex + 1; zIndex <= endIndex; ++zIndex) {
-//        // Propagate fourier coefficients
-//        planeFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
-//        
-//        // The c2r transform destroys its input
-//        tempFourier = planeFourier;
-//        plan_backward = fftw_plan_dft_c2r_2d(nX, nY, (fftw_complex*) tempFourier.data(), tempDirect.data(), FFTW_ESTIMATE);
-//
-//        // Do Fourier-back transform
-//        fftw_execute(plan_backward); /* repeat as needed */
-//        tempDirect /= nX * nY;
-//        
-//        // Copy data
-//        dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
+    types::Uint nX = wfn.grid.directions[0].getNElements(),
+                nY = wfn.grid.directions[1].getNElements(),
+                nZ = zEndIndex;
+    wfn.grid.resize(nX, nY, nZ);
+    Array<types::Real,3> dataArray(
+        &wfn.grid.data[0],
+        shape(nX, nY, nZ),
+        neverDeleteData);
+
+    // Produce z profile
+    std::string zProfile = io::getFileName(wfn.getFileName());
+    formats::WfnCube wfnSq = wfn;
+    wfnSq.grid.squareValues();
+    zProfile += ".zprofile";
+    std::cout << "Writing Z profile to " << zProfile << std::endl;
+    wfnSq.writeZProfile(zProfile, "Z profile of sqared wave function\n");
+
+    if ( mode == constantZ ){
+        // Do a real 2 complex fft
+        // Since a(-k)=a(k)^* (or in terms of indices: a[n-k]=a[k]^*)
+        // only a[k], k=0...n/2+1 (division rounded down) are retained
+        types::Uint nXF = nX, nYF = nY/2 + 1;
+        fftw_complex *out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nXF * nYF);
+        
+        Array<types::Real,2> planeDirect(
+                &extrapolationSurface[0], 
+                shape(nX, nY), 
+                neverDeleteData);
+        
+        fftw_plan plan_forward = fftw_plan_dft_r2c_2d(nX, nY, planeDirect.data(), out, FFTW_ESTIMATE);
+        fftw_execute(plan_forward);
+
+        Array<types::Complex,2> planeFourier(
+                reinterpret_cast<types::Complex *>(out),
+                shape(nXF, nYF),
+                neverDeleteData);
+
+        // Calculate the exponential prefactors.
+        // Multiplication of Fourier coefficients with these prefactors
+        // propagates them to next z plane.
+        // The prefectors would only need dimensions (nX/2 +1, nY/2 +1)
+        // since they are the same for G and -G. However for the sake of
+        // simplicity of calculation, we prepare them here for (nX, nY/2+1) = (nXF,nYF).
+        t = clock();
+        Array<types::Real,2> prefactors(nXF, nYF);
+        // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
+        types::Real energyTerm = 2 * wfn.energy;
+        std::cout << "Energy level " << wfn.energy << " Ha\n";
+        types::Real deltaZ = wfn.grid.directions[2].getIncrementVector()[2];
+        la::Cell cell = la::Cell(wfn.grid.directions);
+        vector<types::Real> X = cell.vector(0);
+        vector<types::Real> Y = cell.vector(1);
+        types::Real dKX = 2 * M_PI / X[0];
+        types::Real dKY = 2 * M_PI / Y[1];
+
+        // Notice that the order of storage is 0...G -G...-1 for uneven nX
+        // and 0...G-1 G -(G-1)...-1 for even NX
+        prefactors( Range(0, nXF/2), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+        // tensor::i always starts from 0, i.e. it ranges from 0...nXF/2-1 (nX even) or 0...nXF/2 (nX uneven)
+        if(nX % 2 == 1)
+            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+        else
+            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 -1 - tensor::i) * dKX * (nXF/2 - 1 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+
+        // Sequentially update the cube file
+        Array<types::Real,2> tempDirect(nX, nY);
+        Array<types::Complex,2> tempFourier(nXF, nYF);
+        fftw_plan plan_backward;
+        for(int zIndex = zStartIndex + 1; zIndex <= zEndIndex; ++zIndex) {
+            // Propagate fourier coefficients
+            planeFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
+
+            // The c2r transform destroys its input
+            tempFourier = planeFourier;
+            plan_backward = fftw_plan_dft_c2r_2d(nX, nY, (fftw_complex*) tempFourier.data(), tempDirect.data(), FFTW_ESTIMATE);
+
+            // Do Fourier-back transform
+            fftw_execute(plan_backward); /* repeat as needed */
+            tempDirect /= nX * nY;
+
+            // Copy data
+            dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
+        }
+
+        fftw_destroy_plan(plan_forward);
+        fftw_destroy_plan(plan_backward);
+        fftw_free(out);
+
+    }
+    else if ( mode == isoSurface ) {}
+
+//    // Produce Fourier coefficient for gnuplot    
+//    types::Complex *pt =  reinterpret_cast<types::Complex *>(out);
+//    for(types::Uint i = 0; i < nXF; ++i){
+//            for(types::Uint j = 0;j< nYF; ++j){
+//                    std::cout << std::abs(*pt) << " ";
+//                    ++pt;
+//            }
+//            std::cout << std::endl;
 //    }
-//
-//    fftw_destroy_plan(plan_forward);
-//    fftw_destroy_plan(plan_backward);
-//    fftw_free(out);
-//
-//    std::cout << "Time to extrapolate : " << (clock() -t)/1000.0 << " ms\n";
-//
-//
-//    // Produce z profile
-//    wfn.grid.squareValues();
-//    std::string outZProfile = outCubeFile;
-//    outZProfile += ".zprofile";
-//    std::cout << "Writing Z profile of extrapolated cube file to " 
-//        << outZProfile << std::endl;
-//    wfn.writeZProfile(outZProfile, "Z profile of squared extrpolated wave function\n");
 
-    return true;
+
+    std::cout << "Time to extrapolate : " << (clock() -t)/1000.0 << " ms\n";
+
+}
+
+void WfnExtrapolation::determineRange(){
+    using namespace blitz;
+
+    if( mode == constantZ ) {
+        // Find highest z-coordinate
+        // Note: The slowest index in cube file format is x, so in terms of storage
+        //       modifying the number of x-coordinates would be the easiest.
+        std::vector< atomistic::Atom >::const_iterator it = wfn.atoms.begin(),
+            end = wfn.atoms.end();
+        types::Real zTop = it->coordinates[2];
+        ++it;
+        while(it != end) {
+            if( it->coordinates[2] > zTop ) {
+                zTop = it->coordinates[2];
+            }
+            ++it;
+        }
     
-void WfnExtrapolation::writeWfnCube(){
+        // Define region of interpolation
+        std::vector<types::Real> tempvector;
+        tempvector.push_back(0);
+        tempvector.push_back(0);
+        tempvector.push_back(zTop + zStart);
+        std::vector<types::Uint> indices;
+        wfn.grid.getNearestIndices(tempvector, indices);
+        this->zStartIndex = indices[2];
+        std::cout << "Fourier transform will be performed at z-index " 
+            << zStartIndex << "\n";
+        tempvector[2] += zWidth;
+        wfn.grid.getNearestIndices(tempvector, indices);
+        this->zEndIndex = indices[2];
+    
+        // Get z-plane for interpolation
+        Array<types::Real,3> dataArray(
+                &wfn.grid.data[0],
+                shape(wfn.nX(), wfn.nY(), wfn.nZ()),
+                neverDeleteData);
+        Array<types::Real,2> plane = dataArray(Range::all(), Range::all(), zStartIndex);
+        this->extrapolationSurface.assign(plane.begin(), plane.end());
+    }
+}
+   
+void WfnExtrapolation::adjustEnergy(){
+    using namespace blitz;
+    if (mode == constantZ ) {
+        // Get z-plane for interpolation
+        Array<types::Real,3> dataArray(
+                const_cast<Real*>(&(hartree->grid.data[0])),
+                shape(hartree->nX(), hartree->nY(), hartree->nZ()),
+                neverDeleteData);
+        Array<types::Real,2> hartreePlane = dataArray(Range::all(), Range::all(), zStartIndex);
+        
+        // Shift levels by "vacuum" Hartree potential
+        // (aveaged value at zStartIndex)
+        Real vacuumPotential = mean(hartreePlane);
+        wfn.setEnergy( wfn.getEnergy()- vacuumPotential);
+        std::cout << "Vacuum hartree potential is " << vacuumPotential << " Ha\n";
+        
+        hartreePlane    = dataArray(Range::all(), Range::all(), zEndIndex);
+        Real hartreeEnd = mean(hartreePlane);
+        std::cout << "Hartree potential changes by " << 
+            hartreeEnd - vacuumPotential << " Ha over extrapolation region.\n";
+
+//        // Write z plane of hartree potential for gnuplot
+//        std::vector<types::Real> hartreePlane;
+//        hartree.getZPlane(zStartIndex, hartreePlane);
+//        types::String s = formats::gnuplot::writeMatrix(
+//                hartreePlane,
+//                hartree.grid.directions[0].getNElements(),
+//                hartree.grid.directions[1].getNElements());
+//        io::writeStream("hartree.zplane",s);
+    }
+}
+
+void WfnExtrapolation::writeWfnCube() const {
     types::String outCubeFile = "extrapolated.";
-    outCubeFile += io::getFileName(wfn.fileName);
+    outCubeFile += io::getFileName(wfn.getFileName());
     writeWfnCube(outCubeFile);
 }
-void WfnExtrapolation::writeWfnCube(types::String fileName){
+void WfnExtrapolation::writeWfnCube(types::String fileName) const {
     t = clock();
     std::cout << "Writing extrapolated cube file to " 
         << fileName << std::endl;
     wfn.writeCubeFile(fileName);
     std::cout << "Time to write cube : " << (clock() -t)/1000.0 << " ms\n";
+
+    // Produce z profile
+    WfnCube temp = wfn;
+    temp.grid.squareValues();
+    std::string outZProfile = fileName;
+    outZProfile += ".zprofile";
+    std::cout << "Writing Z profile of extrapolated cube file to " 
+        << outZProfile << std::endl;
+    temp.writeZProfile(outZProfile, "Z profile of squared extrpolated wave function\n");
 }
 
 

@@ -192,6 +192,7 @@ void r2c2dz_code(){
          st[i] = i;              // lets say we know f on a "stair" 
          f[i]  = input[ i + N* st[i]];
     }
+    }
     
     // Build matrix for modified Fourier transform
     std::vector<cmplx> matrix (N*N);
