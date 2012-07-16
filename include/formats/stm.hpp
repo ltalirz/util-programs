@@ -99,7 +99,7 @@ class StsCube : public formats::Cube {
     
 class WfnExtrapolation {
 public:
-    typedef enum Mode { constantZ, isoSurface };
+    enum Mode { constantZ = 0, isoSurface = 1 };
     void execute();
     void writeWfnCube() const;
     void writeWfnCube(types::String fileName) const;
@@ -121,8 +121,8 @@ private:
     types::Real        zWidth;
     types::Uint        zEndIndex;
     types::Real        isoValue;
-    std::vector<types::Real> extrapolationSurface;
-    std::vector<types::Uint> extrapolationZIndices;
+    std::vector<types::Real> surface;
+    std::vector<types::Uint> zIndices;
 
 
 

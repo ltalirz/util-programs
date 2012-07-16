@@ -8,8 +8,6 @@
 #include <cmath>
 #include <boost/format.hpp>
 
-#include <blitz/array.h>
-
 #include <eigen3/Eigen/Dense>
 
 
@@ -371,7 +369,6 @@ Real Grid<dim>::getDataPoint(std::vector<Uint> indices) const {
 // This works for nd grids
 template<unsigned int dim>
 bool Grid<dim>::getFractionalIndices(std::vector<types::Real>& cartesianCoordinates, std::vector<types::Real>& fractionalIndices) const {
-    Uint dim = cartesianCoordinates.size();
     if (!checkDimension(dim)) return false;
 
     std::vector<Real> basisVectors;

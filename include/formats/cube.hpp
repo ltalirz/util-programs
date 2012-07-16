@@ -17,12 +17,16 @@ struct CubeGrid : public la::Grid<3> {
 
     void sumXY(std::vector<types::Real>& reduced) const;
     void zPlane(types::Uint index, std::vector<types::Real> &plane);
+    void zSurface(std::vector<types::Uint> zIndices, std::vector<types::Real> &plane);
 //    void interpolatedZPlane(const std::vector<Real> &zProfile,
 //            std::vector<types::Real> &plane);
     void averageXY(std::vector<types::Real>& reduced) const;
     void dirSum(types::Uint dirIndex, std::vector<types::Real>& plane) const;
     void dirAverage(types::Uint dirIndex, std::vector<types::Real>& plane) const;
+
     void zIsoSurface(types::Real isoValue, std::vector<types::Real> &coordinates) const; 
+    void zIsoSurfaceOnGrid(types::Real isoValue, std::vector<types::Uint> &zIndices) const; 
+    void zIsoSurfaceOnGrid(types::Real isoValue, std::vector<types::Uint> &zIndices, std::vector<types::Real> &values) const; 
     /**
      * In lack of a proper resampling method. No new values are calculated
      */
@@ -30,6 +34,9 @@ struct CubeGrid : public la::Grid<3> {
     void stride(types::Uint, types::Uint, types::Uint);
     using la::Grid<3>::resize;
     void resize(types::Uint nX, types::Uint nY, types::Uint nZ);
+    types::Uint nX() const  { return directions[0].getNElements(); }
+    types::Uint nY() const  { return directions[1].getNElements(); }
+    types::Uint nZ() const  { return directions[2].getNElements(); }
 
     using la::Grid<3>::getNearestDataPoint;
     types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
@@ -41,6 +48,7 @@ struct CubeGrid : public la::Grid<3> {
     void writeDirPlane(types::String fileName, const std::vector<types::Real>& data, types::Uint dir) const;
     void writePlane(types::String fileName, const std::vector<types::Real>& data, types::Uint i, types::Uint j) const;
 private:
+    void zIsoSurfaceCore(types::Real isoValue, std::vector<types::Uint> &zIndices, std::vector<types::Real> &values, bool onGrid) const; 
 };
 
 
@@ -66,6 +74,7 @@ struct Cube {
 	bool writeZProfile(types::String filename) const;
 
     void squareValues() { grid.squareValues(); }
+    void abs() { grid.abs(); }
     void stride(std::vector<types::Uint> s) { grid.stride(s);}
     void averageXY(std::vector<types::Real> &data) const {grid.averageXY(data);}
     std::vector<types::Real> getZProfile() const;
@@ -93,9 +102,9 @@ struct Cube {
     types::String getFileName() const { return this->fileName; }
 
 
-    types::Uint nX() const  { return grid.directions[0].getNElements(); }
-    types::Uint nY() const  { return grid.directions[1].getNElements(); }
-    types::Uint nZ() const  { return grid.directions[2].getNElements(); }
+    types::Uint nX() const  { return grid.nX(); }
+    types::Uint nY() const  { return grid.nY(); }
+    types::Uint nZ() const  { return grid.nZ(); }
 };
 
 /**

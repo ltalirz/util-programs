@@ -421,19 +421,27 @@ Real CubeGrid::getDataPoint(Uint x, Uint y, Uint z) const {
 
 void CubeGrid::zPlane(Uint zIndex, std::vector<types::Real> &plane) {
     using namespace blitz;
-    std::vector<Real> test;
-    const Array<Real,3> dataArray(
+    Array<Real,3> dataArray(
         &data[0],
-        shape(directions[0].getNElements(),
-              directions[1].getNElements(),
-              directions[2].getNElements()),
+        shape(nX(), nY(), nZ()),
         neverDeleteData);
-    Array<types::Real,2> blitzPlane =
+    Array<types::Real,2> blitzplane =
         dataArray(Range::all(), Range::all(), zIndex);
-    plane.assign(blitzPlane.begin(), blitzPlane.end());
+    plane.assign(blitzplane.begin(), blitzplane.end());
 }
 
+void CubeGrid::zSurface(std::vector<Uint> zIndices, std::vector<Real> &plane) {
+   
+    std::vector<Uint>::const_iterator it = zIndices.begin(); 
+    Uint nX = this->nX(), nY = this->nY(), nZ = this->nZ();
+    for(Uint x = 0; x < nX; ++x){
+       for(Uint y = 0; y < nY; ++y){
+           plane.push_back( data[nY*nZ*x + nZ*y] );
+           ++it;
+       }
+    }
 
+}
 /**
  * Fill vector reduced with the sum over XY
  */
@@ -560,16 +568,41 @@ void CubeGrid::writePlane(String fileName, const std::vector<Real>& data, Uint i
     io::writeStream(fileName, result);
 }
 
+void CubeGrid::zIsoSurfaceOnGrid(Real isoValue, std::vector<Uint> &zIndices) const {
+    std::vector<Real> trash;
+    zIsoSurfaceOnGrid(isoValue, zIndices, trash);
+}
+
+void CubeGrid::zIsoSurfaceOnGrid(
+        Real isoValue, 
+        std::vector<Uint> &zIndices, 
+        std::vector<Real> &values) const {
+    
+    zIsoSurfaceCore(isoValue, zIndices, values, true);
+}
 
 void CubeGrid::zIsoSurface(
         types::Real isoValue, 
-        std::vector<types::Real> &surface) const {
+        std::vector<types::Real> &surface
+                          ) const {
 
+    std::vector<Uint> trash;
+    zIsoSurfaceCore(isoValue, trash, surface, false);
+}
+
+
+void CubeGrid::zIsoSurfaceCore(
+            Real isoValue, 
+            std::vector<Uint> &zIndices, 
+            std::vector<Real> &values,
+            bool onGrid
+                                          ) const {
+       
     Uint zPoints = directions[2].getNElements();
     Real dZ = directions[2].getIncrementVector()[2];
     Uint planePoints = directions[0].getNElements()
         * directions[1].getNElements();
-    surface.reserve(planePoints);
+    values.reserve(planePoints);
     
     
     std::vector<Real>::const_iterator dataIt, dataStop;
@@ -583,29 +616,45 @@ void CubeGrid::zIsoSurface(
         while(dataIt != dataStop){
             // As soon as we enter the isosurface
             if(*dataIt > isoValue){
-                // If we are still at the top of the grid
-                if(z == zPoints-1) surface.push_back(z * dZ);
-                // else we need to extrapolate
-                else surface.push_back( 
+                // onGrid: Store z-indices plus function values
+                if (onGrid) {
+                    zIndices.push_back(z);
+                    values  .push_back(*dataIt);
+                }
+                // offGrid: Store interpolated z
+                else {
+                    // If we are still at the top of the grid
+                    if(z == zPoints-1) values.push_back(z * dZ);
+                    // else we need to extrapolate
+                    else values.push_back( 
                             z * dZ +
                             (*dataIt - isoValue)/(*dataIt - *(dataIt+1)) * dZ
                             );
+                }
                 break;
             }
             --dataIt;
             --z;
         }
+
         if(dataIt == dataStop){
 #ifdef FORMATS_STM_STRICT
             throw types::runtimeError() 
                     << types::errinfo_runtime("Missed an isosurface value");
 #else
             std::cout << "Missed an isosurface value. Put 0 instead.\n";
-            surface.push_back(0);
+            if(onGrid){
+                zIndices.push_back(0);
+                values.push_back(*dataIt);
+            }
+            else  values.push_back(0);
 #endif
         }
     }
 }
+
+
+
 
 
 }

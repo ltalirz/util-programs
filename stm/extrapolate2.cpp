@@ -95,13 +95,14 @@ bool prepare(types::String levelFileName,
     t = clock();
     
     // Iterate over cubes
-    stm::WfnExtrapolation::Mode m = ( mode == "constantZ" ) 
+    stm::WfnExtrapolation::Mode m = ( mode == "constant-z" ) 
                                     ? stm::WfnExtrapolation::constantZ 
-                                    : stm::WfnExtrapolation::isoValue;
-    types::Real var1 = ( m == constantZ ) ? start : isoValue;
+                                    : stm::WfnExtrapolation::isoSurface;
+    types::Real var1 = ( m == stm::WfnExtrapolation::constantZ ) 
+                       ? start : isoValue;
     for(std::vector<types::String>::const_iterator it = cubeList.begin();
             it != cubeList.end(); ++it) {
-        stm::WfnExtrapolation extrapolation = WfnExtrapolation(
+        stm::WfnExtrapolation extrapolation = stm::WfnExtrapolation(
                 *it,
                 spectrum,
                 hartree,
@@ -128,10 +129,10 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
      ("levels", po::value<types::String>(), "CP2K output file containing energy levels")
     ("cubelist", po::value<types::String>(), "file with list of wavefunction cubes you wish to extrapolate")
     ("hartree", po::value<types::String>(), "cube file of hartree potential from CP2K")
-    ("mode", po::value<types::String>(), "may be 'constantZ' or 'isoSurface'")
-    ("start", po::value<double>(), "distance between extrapolation plane and outermost atom in a.u.")
-    ("width", po::value<double>(), "length of extrapolation in a.u.")
-    ("isoValue", po::value<double>(), "isoValue of wavefunction [a.u.] for mode 'isoSurface'")
+    ("mode", po::value<types::String>()->default_value("constant-z"), "may be 'constant-z' or 'isoSurface'")
+    ("start", po::value<double>()->default_value(5), "mode 'constant-z': distance between extrapolation plane and outermost atom in a.u.")
+    ("width", po::value<double>()->default_value(15), "length of extrapolation in a.u.")
+    ("isoValue", po::value<double>()->default_value(1e-4), "mode 'isoSurface': isoValue of wavefunction [a.u.] ")
     ;
 
     // Register positional options
@@ -160,13 +161,14 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
         std::cout << "July 15th 2012\n";
-    } else if ( vm.count("mode") 
-            && (vm["mode"].as< String >() != "constantZ" || vm["mode"].as< String >() != "isoSurface")) {
+    } else if ( vm.count("mode")  && 
+                vm["mode"].as< types::String >() != "constant-z" && 
+                vm["mode"].as< types::String >() != "isoSurface") {
                 std::cout << "Error: invalid mode specified.\n";
-    } else if ( (!vm.count("mode")  || vm["mode"].as< String >() == "constantZ") &&
+    } else if ( (!vm.count("mode")  || vm["mode"].as< types::String >() == "constant-z") &&
                !(vm.count("start") && vm.count("width"))) {
-                std::cout << "Error: Need to specify 'start' and 'width' for mode='constantZ'.\n";
-    } else if ( vm["mode"].as< String >() == "isoSurface" &&
+                std::cout << "Error: Need to specify 'start' and 'width' for mode='constant-z'.\n";
+    } else if ( vm["mode"].as< types::String >() == "isoSurface" &&
                !(vm.count("isoValue") && vm.count("width"))) {
                 std::cout << "Error: Need to specify 'isoValue' and 'width' for mode='isoSurface'.\n";
     } else {

@@ -2,6 +2,7 @@
 #include "formats/stm.hpp"
 #include "atomistic/fundamental.hpp"
 #include "types.hpp"
+#include "wrappers/lapack.hpp"
 #include "io.hpp"
 #include <cmath>
 
@@ -242,8 +243,8 @@ WfnExtrapolation::WfnExtrapolation(
 
     this->hartree = &hartree;
     this->mode    = mode;
-    if ( mode == constantZ ) this->isoValue = var1;
-    else                     this->zStart   = var1;
+    if ( mode == constantZ ) this->zStart   = var1;
+    else                     this->isoValue = var1;
     this->zWidth  = zWidth;
 }
 
@@ -254,23 +255,15 @@ void WfnExtrapolation::execute(){
     std::cout << "--------\n Extrapolating " << wfn.getFileName() << "\n";
  
     this->determineRange();
+    this->adjustEnergy();
     
-    types::Uint nX = wfn.grid.directions[0].getNElements(),
-                nY = wfn.grid.directions[1].getNElements(),
-                nZ = zEndIndex;
+    types::Uint nX = wfn.nX(), nY = wfn.nY(), nZ = zEndIndex;
     wfn.grid.resize(nX, nY, nZ);
     Array<types::Real,3> dataArray(
         &wfn.grid.data[0],
         shape(nX, nY, nZ),
         neverDeleteData);
 
-    // Produce z profile
-    std::string zProfile = io::getFileName(wfn.getFileName());
-    formats::WfnCube wfnSq = wfn;
-    wfnSq.grid.squareValues();
-    zProfile += ".zprofile";
-    std::cout << "Writing Z profile to " << zProfile << std::endl;
-    wfnSq.writeZProfile(zProfile, "Z profile of sqared wave function\n");
 
     if ( mode == constantZ ){
         // Do a real 2 complex fft
@@ -280,7 +273,7 @@ void WfnExtrapolation::execute(){
         fftw_complex *out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nXF * nYF);
         
         Array<types::Real,2> planeDirect(
-                &extrapolationSurface[0], 
+                &surface[0], 
                 shape(nX, nY), 
                 neverDeleteData);
         
@@ -344,17 +337,126 @@ void WfnExtrapolation::execute(){
         fftw_free(out);
 
     }
-    else if ( mode == isoSurface ) {}
+    else if ( mode == isoSurface ) {
+        
+        // Build matrix for modified Fourier transform
+        Uint n = nX * nY;
+        Uint iX, iY;
+        Real kX, kY, kZ;
 
-//    // Produce Fourier coefficient for gnuplot    
-//    types::Complex *pt =  reinterpret_cast<types::Complex *>(out);
-//    for(types::Uint i = 0; i < nXF; ++i){
-//            for(types::Uint j = 0;j< nYF; ++j){
-//                    std::cout << std::abs(*pt) << " ";
-//                    ++pt;
-//            }
-//            std::cout << std::endl;
-//    }
+        std::vector<Complex> A;
+        for(Uint i = 0; i < n; ++i){
+            for(Uint j = 0; j < n; ++j){
+
+                iX = i & nY; iY = i / nY;
+                if( 2* iX > nX) kX = (nX - i)/ Real( nX );
+                else kX = i / Real( nX );
+                if( 2* iY > nY) kY = (nY - i)/ Real( nY );
+                else kY = i / Real( nY );
+
+                kZ = sqrt( 2 * wfn.getEnergy() + kX * kX + kY * kY);
+               
+                // Need transposed matrix for Fortran lapack
+                A[i + j*n] = exp( 
+                            2.0 * M_PI * Complex(0,1) * 
+                            ( Real(i % nY) * Real(j % nY) + 
+                              Real(i / nY) * Real(j / nY) ) / Real(n)
+                            - kZ * (zIndices[i] - zStartIndex) );
+
+            }
+
+        }
+        
+        // Solve the linear system, overwriting values with Fourier coefficients
+        int nVectors = 1; int info; int N = n;
+        std::vector<int> permutations(n);  
+        
+        std::vector<Complex> fourierCoefficients(n);
+        for(Uint i = 0; i < surface.size(); ++i) fourierCoefficients[i] = surface[i];
+        std::cout << "Solving linear system of dimension " << n 
+                  << ", i.e. " << n*n*16 /1024.0/ 1024.0 << " GBytes per matrix\n";
+        t = clock();
+        zgesv_(&N, &nVectors, &*A.begin(), &N, &*permutations.begin(), &*fourierCoefficients.begin(), &N, &info);
+        if( info != 0 ) throw types::runtimeError() 
+                           << types::errinfo_runtime("Linear system could not be solved.");
+       
+        // Now, the resulting coefficients should hopefully be hermitian. We have to check.
+        Real normTot, normNonH; 
+        Complex aIJ, aJI;
+        for(Uint x = 0; x < nX; ++x){
+            for(Uint y = 0; y < nY; ++y){
+                aIJ = fourierCoefficients[x*nY + y];
+                aJI = fourierCoefficients[y*nY + x];
+                 
+                normTot += abs(aIJ *aIJ);
+                normNonH += abs( (aIJ - conj(aJI)) * (aIJ - conj(aJI)));
+            }
+        }
+
+        std::cout << "Frobenius norm of Fourier coefficients: " << sqrt(abs(normTot)) <<
+                     ", Forbenis norm of A-A^H: " << sqrt(abs(normNonH)) << "\n";
+
+
+//        // Calculate the prefactors
+//        // Calculate the exponential prefactors.
+//        // Multiplication of Fourier coefficients with these prefactors
+//        // propagates them to next z plane.
+//        // The prefectors would only need dimensions (nX/2 +1, nY/2 +1)
+//        // since they are the same for G and -G. However for the sake of
+//        // simplicity of calculation, we prepare them here for (nX, nY/2+1) = (nXF,nYF).
+//        t = clock();
+//        Array<types::Real,2> prefactors(nXF, nYF);
+//        // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
+//        types::Real energyTerm = 2 * wfn.energy;
+//        std::cout << "Energy level " << wfn.energy << " Ha\n";
+//        types::Real deltaZ = wfn.grid.directions[2].getIncrementVector()[2];
+//        la::Cell cell = la::Cell(wfn.grid.directions);
+//        vector<types::Real> X = cell.vector(0);
+//        vector<types::Real> Y = cell.vector(1);
+//        types::Real dKX = 2 * M_PI / X[0];
+//        types::Real dKY = 2 * M_PI / Y[1];
+//
+//        // Notice that the order of storage is 0...G -G...-1 for uneven nX
+//        // and 0...G-1 G -(G-1)...-1 for even NX
+//        prefactors( Range(0, nXF/2), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+//        // tensor::i always starts from 0, i.e. it ranges from 0...nXF/2-1 (nX even) or 0...nXF/2 (nX uneven)
+//        if(nX % 2 == 1)
+//            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+//        else
+//            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 -1 - tensor::i) * dKX * (nXF/2 - 1 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+//
+//        fftw_plan plan_backward;
+//        for(int zIndex = zStartIndex + 1; zIndex <= zEndIndex; ++zIndex) {
+//            // Propagate fourier coefficients
+//            planeFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
+//
+//            // The c2r transform destroys its input
+//            tempFourier = planeFourier;
+//            plan_backward = fftw_plan_dft_c2r_2d(nX, nY, (fftw_complex*) tempFourier.data(), tempDirect.data(), FFTW_ESTIMATE);
+//
+//            // Do Fourier-back transform
+//            fftw_execute(plan_backward); /* repeat as needed */
+//            tempDirect /= nX * nY;
+//
+//            // Copy data
+//            dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
+//        }
+//
+//        fftw_destroy_plan(plan_forward);
+//        fftw_destroy_plan(plan_backward);
+    }
+
+
+
+    //    // Produce Fourier coefficient for gnuplot    
+    //    types::Complex *pt =  reinterpret_cast<types::Complex *>(out);
+    //    for(types::Uint i = 0; i < nXF; ++i){
+    //            for(types::Uint j = 0;j< nYF; ++j){
+    //                    std::cout << std::abs(*pt) << " ";
+    //                    ++pt;
+    //            }
+    //            std::cout << std::endl;
+    //    }
 
 
     std::cout << "Time to extrapolate : " << (clock() -t)/1000.0 << " ms\n";
@@ -363,6 +465,8 @@ void WfnExtrapolation::execute(){
 
 void WfnExtrapolation::determineRange(){
     using namespace blitz;
+
+    WfnCube tmp = wfn;
 
     if( mode == constantZ ) {
         // Find highest z-coordinate
@@ -399,12 +503,42 @@ void WfnExtrapolation::determineRange(){
                 shape(wfn.nX(), wfn.nY(), wfn.nZ()),
                 neverDeleteData);
         Array<types::Real,2> plane = dataArray(Range::all(), Range::all(), zStartIndex);
-        this->extrapolationSurface.assign(plane.begin(), plane.end());
+        this->surface.assign(plane.begin(), plane.end());
     }
+
+    else if ( mode == isoSurface ) {
+        tmp.abs();
+        tmp.grid.zIsoSurfaceOnGrid(isoValue, this->zIndices, this->surface);
+        Array<types::Uint,2> zIndicesBlitz(
+                &zIndices[0],
+                shape(wfn.nX(), wfn.nY()),
+                neverDeleteData);
+    
+    
+        zStartIndex = min(zIndicesBlitz);
+        Real dZ = wfn.grid.directions[2].getIncrementVector()[2];
+        zEndIndex = max(zIndicesBlitz) + Uint(zWidth / dZ);
+
+        std::cout << "Isosurface ranges from z = " << zStartIndex * dZ 
+                  << " to " << max(zIndicesBlitz) * dZ << " [a.u.]\n";
+        std::cout << "Interpolation will be extended to "
+                  << zEndIndex * dZ << " [a.u.]\n";
+    }
+    
+    // Produce z profile
+    std::string zProfile = io::getFileName(wfn.getFileName());
+    tmp.squareValues();
+    zProfile += ".zprofile";
+    std::cout << "Writing Z profile to " << zProfile << std::endl;
+    tmp.writeZProfile(zProfile, "Z profile of sqared wave function\n");
+
 }
    
 void WfnExtrapolation::adjustEnergy(){
     using namespace blitz;
+
+    Real vacuumPotential = 0;
+
     if (mode == constantZ ) {
         // Get z-plane for interpolation
         Array<types::Real,3> dataArray(
@@ -415,8 +549,7 @@ void WfnExtrapolation::adjustEnergy(){
         
         // Shift levels by "vacuum" Hartree potential
         // (aveaged value at zStartIndex)
-        Real vacuumPotential = mean(hartreePlane);
-        wfn.setEnergy( wfn.getEnergy()- vacuumPotential);
+        vacuumPotential = mean(hartreePlane);
         std::cout << "Vacuum hartree potential is " << vacuumPotential << " Ha\n";
         
         hartreePlane    = dataArray(Range::all(), Range::all(), zEndIndex);
@@ -433,6 +566,19 @@ void WfnExtrapolation::adjustEnergy(){
 //                hartree.grid.directions[1].getNElements());
 //        io::writeStream("hartree.zplane",s);
     }
+    else if (mode == isoSurface){
+        std::vector<Real> hartreeValues;
+        const_cast<Cube *>(hartree)->grid.zSurface(zIndices, hartreeValues);
+        Array<types::Real,2> hartreeBlitz(
+                &hartreeValues[0],
+                shape(hartree->nX(), hartree->nY()),
+                neverDeleteData);
+        vacuumPotential = mean(hartreeBlitz);
+        std::cout << "Vacuum hartree potential is " << vacuumPotential << " Ha\n";
+    }
+    
+    wfn.setEnergy( wfn.getEnergy()- vacuumPotential);
+
 }
 
 void WfnExtrapolation::writeWfnCube() const {
@@ -441,7 +587,7 @@ void WfnExtrapolation::writeWfnCube() const {
     writeWfnCube(outCubeFile);
 }
 void WfnExtrapolation::writeWfnCube(types::String fileName) const {
-    t = clock();
+    time_t t = clock();
     std::cout << "Writing extrapolated cube file to " 
         << fileName << std::endl;
     wfn.writeCubeFile(fileName);
