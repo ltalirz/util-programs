@@ -8,6 +8,7 @@
 #include "la.hpp"
 #include "atomistic/fundamental.hpp"
 #include "formats/cube.hpp"
+#include "formats/cp2k.hpp"
 
 namespace formats {
 namespace stm {
@@ -96,6 +97,36 @@ class StsCube : public formats::Cube {
         const StmCube & getStm(){ return stm; }
 };
     
+class WfnExtrapolation {
+public:
+    enum Mode { constantZ, isoSurface };
+    void execute();
+    void writeWfnCube();
+    void writeWfnCube(types::String fileName);
+    WfnExtrapolation(){};
+    WfnExtrapolation(types::String fileName,
+                     const cp2k::Spectrum &spectrum,
+                     Mode          mode,
+                     types::Real   var1,
+                     types::Real   var2);
+    WfnExtrapolation(types::String fileName,
+                     const cp2k::Spectrum &spectrum,
+                     const Cube&   hartree ,
+                     Mode          mode    ,
+                     types::Uint   zStart  ,
+                     types::Uint   zWidth  ,
+                     types::Real   isoLevel);
+private:
+    WfnCube     wfn;
+    const Cube* hartree;
+    Mode        mode;
+    types::Uint zStart;
+    types::Uint zWidth;
+    types::Real isoLevel;
+
+
+
+};
     
 
 }

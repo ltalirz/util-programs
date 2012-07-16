@@ -608,6 +608,5 @@ void CubeGrid::zIsoSurface(
 }
 
 
-
 }
 

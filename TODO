@@ -1,3 +1,11 @@
+##########
+# TODO   #
+##########
+
+- stm: add option for "fft interpolation"
+  do fft of stm profile, then place data inside fft container corresponding to
+  finer grid and back-fft on finer grid.
+
 - combine extrapolate and sumbias to a single program
   => extrapolated cubes never have to be written to disk
 
@@ -21,6 +29,12 @@
   broadening) is not internally consistent.
   In sumbias I should also admix states (with an erf prefactor or similar) that 
   are outside the bias window.
+
+
+##########
+#  DONE  #
+##########
+
 Done:
 - Change incrementCount ind la::Direction to pointCount or somthing similar
 - la: replace Grid by template<unsigned int dim> Grid   One might think of a specialization CubeGrid and move the convenience

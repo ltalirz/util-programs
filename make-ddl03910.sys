@@ -8,5 +8,5 @@ CFLAGS =  -O1 -I /usr/include
 LFLAGS   = -static -pthread
 LFLAGS  += -L /usr/lib
 LFLAGS  += -lboost_program_options -lboost_regex -lboost_filesystem -lboost_system
-LFLAGS  += -lfftw3 -lm -lblitz
+LFLAGS  += -lfftw3 -lm -lblitz -llapack -lblas
 

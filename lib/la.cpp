@@ -302,6 +302,16 @@ void Grid<dim>::sqrt() {
 }
 
 template<unsigned int dim>
+void Grid<dim>::signsqrt() {
+    std::vector<Real>::iterator it = data.begin(), end = data.end();
+    while(it != end) {
+        if(*it < 0) *it = -std::sqrt(std::abs(*it));
+        else        *it = std::sqrt(*it);
+        ++it;
+    }
+}
+
+template<unsigned int dim>
 bool Grid<dim>::checkDimension(Uint size) const {
     if (size != dim) {
         throw std::range_error("Number of given indices does not equal number of grid directions.");

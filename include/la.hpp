@@ -72,6 +72,7 @@ struct Grid {
     const Grid & operator+=(const Grid &g);
     const Grid & operator*=(types::Real x);
     void squareValues();
+    void signsqrt();
     void sqrt();
     void abs();
     types::Real sum() const;

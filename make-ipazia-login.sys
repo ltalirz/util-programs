@@ -10,12 +10,20 @@ endif
 
 HOME    = /home/tal127
 BOOST   = $(HOME)/packages/boost/boost_1_48_0
-
+MKLROOT = /opt/intel/ics_2012.0.032/mkl
 
 CFLAGS += -I $(BOOST)/ -I $(HOME)/local/include
+CFLAGS += -I $(MKLROOT)/include
+         
 
 # ipazia has only dynamic libstd++ !
 LFLAGS  = -pthread
 LFLAGS += -L $(BOOST)/stage/lib/
 LFLAGS += -L $(HOME)/local/lib/
-LFLAGS += -lboost_program_options -lboost_regex -lboost_system -lboost_filesystem -lfftw3 -lm -lblitz
+LFLAGS += -lboost_program_options -lboost_regex -lboost_system -lboost_filesystem
+LFLAGS += -lfftw3 -lm -lblitz 
+
+# Sequantial MKL, see http://software.intel.com/en-us/articles/intel-mkl-link-line-advisor/
+LFLAGS += -Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a 
+LFLAGS += $(MKLROOT)/lib/intel64/libmkl_sequential.a 
+LFLAGS += $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm

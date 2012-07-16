@@ -1,0 +1,4 @@
+V1 used matrix inversion plus some wrapper from the web and needed
+   7.5GB memory plus 15 minutes run time on an infinijazz node
+V2 solved the linear system and used 3GB plus 5 minutes runtime on an
+   infiniband node. The 3GB will still be halved.

@@ -19,13 +19,13 @@ INCDEP     = $(addprefix $(INCDIR)/, $(addsuffix .hpp, $(COMPONENTS)))
 LIBDEP     = $(addprefix $(LIBDIR)/, $(addsuffix .o, $(COMPONENTS)))
 
 ##### Programs
-STMPROGS   = extrapolate sumbias sts stm
+STMPROGS   = extrapolate sumbias sts stm extrapolate2
 UTILPROGS  = cubestride cubescale cubesquare cuberoot cubeabs cubezprofile
-UTILPROGS += cubediravg
+UTILPROGS += cubediravg espressowfn
 
 
 # Test targets are made like: make test/regex
-TEST       = fftw fftw-2 stl blitz inherit karma progress po core
+TEST       = fftw fftw-2 stl blitz inherit karma progress po core lap lapack
 TESTTARGETS   = $(addprefix test/, $(TEST))
 # These targets may depend on my library
 TESTLIB    = regex qi qi-stack qi-cptime read write la readcp types p stm readesp

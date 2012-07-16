@@ -107,6 +107,8 @@ struct WfnCube : public Cube {
 
     void setEnergy(types::Real e){ energy = e; }
     types::Real getEnergy() { return energy; }
+    types::Uint getSpin() { return spin; }
+    types::Uint getLevel() { return wfn; }
 
     WfnCube(){}; 
     WfnCube(const Cube& c){ 
@@ -117,7 +119,6 @@ struct WfnCube : public Cube {
         fileName=c.fileName;
     }
 };
-
 
 }
 #endif
