@@ -17,6 +17,9 @@ struct CubeGrid : public la::Grid<3> {
 
     void sumXY(std::vector<types::Real>& reduced) const;
     void zPlane(types::Uint index, std::vector<types::Real> &plane);
+    void plane(types::Uint dir, 
+               types::Uint index,
+               std::vector<types::Real> &plane);
     void zSurface(std::vector<types::Uint> zIndices, std::vector<types::Real> &plane);
 //    void interpolatedZPlane(const std::vector<Real> &zProfile,
 //            std::vector<types::Real> &plane);
@@ -25,7 +28,9 @@ struct CubeGrid : public la::Grid<3> {
     void dirAverage(types::Uint dirIndex, std::vector<types::Real>& plane) const;
 
     void zIsoSurface(types::Real isoValue, std::vector<types::Real> &coordinates) const; 
+    void zIsoSurface(types::Real isoValue, std::vector<types::Real> &coordinates, types::Real approachFrom) const; 
     void zIsoSurfaceOnGrid(types::Real isoValue, std::vector<types::Uint> &zIndices) const; 
+    void zIsoSurfaceOnGrid(types::Real isoValue, std::vector<types::Uint> &zIndices, types::Real approachFrom) const; 
     void zIsoSurfaceOnGrid(types::Real isoValue, std::vector<types::Uint> &zIndices, std::vector<types::Real> &values) const; 
     /**
      * In lack of a proper resampling method. No new values are calculated
@@ -48,7 +53,11 @@ struct CubeGrid : public la::Grid<3> {
     void writeDirPlane(types::String fileName, const std::vector<types::Real>& data, types::Uint dir) const;
     void writePlane(types::String fileName, const std::vector<types::Real>& data, types::Uint i, types::Uint j) const;
 private:
-    void zIsoSurfaceCore(types::Real isoValue, std::vector<types::Uint> &zIndices, std::vector<types::Real> &values, bool onGrid) const; 
+    void zIsoSurfaceCore(types::Real isoValue, 
+                         std::vector<types::Uint> &zIndices, 
+                         std::vector<types::Real> &values, 
+                         types::Real approachFrom,
+                         bool onGrid) const; 
 };
 
 

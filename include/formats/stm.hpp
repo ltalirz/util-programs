@@ -111,7 +111,11 @@ public:
                      const Cube&   hartree ,
                      Mode          mode    ,
                      types::Real   var1    ,
-                     types::Real   isoLevel);
+                     types::Real   isoLevel,
+                     types::Real   approachFrom,
+                     types::Real   decayCutoff,
+                     types::Uint   nLayers
+                     );
 private:
     WfnCube            wfn;
     const Cube*        hartree;
@@ -120,7 +124,11 @@ private:
     types::Uint        zStartIndex;
     types::Real        zWidth;
     types::Uint        zEndIndex;
+    types::Uint        zSurfEndIndex;
     types::Real        isoValue;
+    types::Real        approachFrom;
+    types::Real        decayCutoff;
+    types::Uint        nLayers;
     std::vector<types::Real> surface;
     std::vector<types::Uint> zIndices;
 

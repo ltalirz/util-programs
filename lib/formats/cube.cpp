@@ -418,16 +418,32 @@ Real CubeGrid::getDataPoint(Uint x, Uint y, Uint z) const {
 //   while(it != end){
 //       getNearest
 //
+void CubeGrid::plane(Uint dirIndex, Uint index, std::vector<Real> &plane){
+    using namespace blitz;
+    namespace t = tensor;
+
+    Array<Real,3> dataArray(const_cast<Real*>(&data[0]), shape(nX(), nY(), nZ()));
+    // reduce a dimension
+    if(dirIndex == 0) {
+    Array<types::Real,2> blitzPlane =
+        dataArray(index, Range::all(), Range::all());
+        plane.assign(blitzPlane.begin(), blitzPlane.end());
+    } else if(dirIndex == 1) {
+    Array<types::Real,2> blitzPlane =
+        dataArray(Range::all(), index, Range::all());
+        plane.assign(blitzPlane.begin(), blitzPlane.end());
+    } else if(dirIndex == 2) {
+    Array<types::Real,2> blitzPlane =
+        dataArray(Range::all(), Range::all(), index);
+        blitzPlane = blitzPlane(t::j, t::i);
+        plane.assign(blitzPlane.begin(), blitzPlane.end());
+    } else {
+        throw types::runtimeError() << types::errinfo_runtime("Direction index out of bounds.");
+    }
+}
 
 void CubeGrid::zPlane(Uint zIndex, std::vector<types::Real> &plane) {
-    using namespace blitz;
-    Array<Real,3> dataArray(
-        &data[0],
-        shape(nX(), nY(), nZ()),
-        neverDeleteData);
-    Array<types::Real,2> blitzplane =
-        dataArray(Range::all(), Range::all(), zIndex);
-    plane.assign(blitzplane.begin(), blitzplane.end());
+    this->plane(2, zIndex, plane);
 }
 
 void CubeGrid::zSurface(std::vector<Uint> zIndices, std::vector<Real> &plane) {
@@ -436,7 +452,7 @@ void CubeGrid::zSurface(std::vector<Uint> zIndices, std::vector<Real> &plane) {
     Uint nX = this->nX(), nY = this->nY(), nZ = this->nZ();
     for(Uint x = 0; x < nX; ++x){
        for(Uint y = 0; y < nY; ++y){
-           plane.push_back( data[nY*nZ*x + nZ*y] );
+           plane.push_back( data[nY*nZ*x + nZ*y + *it] );
            ++it;
        }
     }
@@ -492,7 +508,7 @@ void CubeGrid::dirSum(Uint dirIndex, std::vector<Real>& plane) const {
     using namespace blitz;
     namespace t = tensor;
 
-    Array<Real,3> dataArray(const_cast<Real*>(&data[0]), shape(directions[0].getNElements(), directions[1].getNElements(), directions[2].getNElements()));
+    Array<Real,3> dataArray(const_cast<Real*>(&data[0]), shape(nX(), nY(), nZ()));
     // reduce a dimension
     if(dirIndex == 0) {
         Array<Real, 2>
@@ -576,9 +592,17 @@ void CubeGrid::zIsoSurfaceOnGrid(Real isoValue, std::vector<Uint> &zIndices) con
 void CubeGrid::zIsoSurfaceOnGrid(
         Real isoValue, 
         std::vector<Uint> &zIndices, 
+        Real startFromZ) const {
+    std::vector<Real> trash;
+    zIsoSurfaceCore(isoValue, zIndices, trash, startFromZ, true);
+}
+
+void CubeGrid::zIsoSurfaceOnGrid(
+        Real isoValue, 
+        std::vector<Uint> &zIndices, 
         std::vector<Real> &values) const {
     
-    zIsoSurfaceCore(isoValue, zIndices, values, true);
+    zIsoSurfaceCore(isoValue, zIndices, values, -1, true);
 }
 
 void CubeGrid::zIsoSurface(
@@ -587,14 +611,24 @@ void CubeGrid::zIsoSurface(
                           ) const {
 
     std::vector<Uint> trash;
-    zIsoSurfaceCore(isoValue, trash, surface, false);
+    zIsoSurfaceCore(isoValue, trash, surface, -1, false);
 }
 
+void CubeGrid::zIsoSurface(
+        types::Real isoValue, 
+        std::vector<types::Real> &surface,
+        types::Real startFromZ
+                          ) const {
+
+    std::vector<Uint> trash;
+    zIsoSurfaceCore(isoValue, trash, surface, startFromZ, false);
+}
 
 void CubeGrid::zIsoSurfaceCore(
             Real isoValue, 
             std::vector<Uint> &zIndices, 
             std::vector<Real> &values,
+            Real startFromZ,
             bool onGrid
                                           ) const {
        
@@ -604,18 +638,20 @@ void CubeGrid::zIsoSurfaceCore(
         * directions[1].getNElements();
     values.reserve(planePoints);
     
+    Uint startFromZIndex = (startFromZ > 0) ? Uint(startFromZ / dZ) + 1 : zPoints -1;
     
     std::vector<Real>::const_iterator dataIt, dataStop;
     for(Uint p = 0; p < planePoints; ++p){
         // Start from high z, going down
         dataIt = data.begin();
-        dataIt += (p+1) * zPoints - 1;
-        Uint z = zPoints -1;
+        dataIt += p*zPoints + startFromZIndex ;
+        Uint z = startFromZIndex;
         dataStop = data.begin();
         dataStop += p * zPoints;
         while(dataIt != dataStop){
             // As soon as we enter the isosurface
-            if(*dataIt > isoValue){
+            if( (*dataIt >= isoValue && *(dataIt-1) < isoValue) ||
+                (*dataIt <= isoValue && *(dataIt-1) > isoValue)   ){
                 // onGrid: Store z-indices plus function values
                 if (onGrid) {
                     zIndices.push_back(z);
@@ -628,7 +664,7 @@ void CubeGrid::zIsoSurfaceCore(
                     // else we need to extrapolate
                     else values.push_back( 
                             z * dZ +
-                            (*dataIt - isoValue)/(*dataIt - *(dataIt+1)) * dZ
+                            (*(dataIt-1) - isoValue)/(*(dataIt-1) - *dataIt) * dZ
                             );
                 }
                 break;

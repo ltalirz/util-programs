@@ -1,4 +1,5 @@
 #include "formats/cube.hpp"
+#include "formats/gnuplot.hpp"
 #include "formats/stm.hpp"
 #include "atomistic/fundamental.hpp"
 #include "types.hpp"
@@ -234,9 +235,14 @@ WfnExtrapolation::WfnExtrapolation(
         const Cube&   hartree ,
         Mode          mode    ,
         types::Real   var1    ,
-        types::Real   zWidth  ){
+        types::Real   zWidth  ,
+        types::Real   approachFrom,
+        types::Real   decayCutoff,
+        types::Uint   nLayers
+        ){
     wfn     = WfnCube();  
     time_t t = clock();
+    std::cout << "--------\n Processing  " << fileName << "\n";
     wfn.readCubeFile(fileName.c_str()); 
     std::cout << "Time to read cube : " << (clock() -t)/1000.0 << " ms\n";
     wfn.setEnergy( spectrum.getLevel(wfn.getSpin(), wfn.getLevel()) );
@@ -246,25 +252,37 @@ WfnExtrapolation::WfnExtrapolation(
     if ( mode == constantZ ) this->zStart   = var1;
     else                     this->isoValue = var1;
     this->zWidth  = zWidth;
+    this->approachFrom = approachFrom;
+    this->decayCutoff = decayCutoff;
+    this->nLayers     = nLayers;
+
 }
 
 void WfnExtrapolation::execute(){
     using namespace blitz;
     time_t t;
 
-    std::cout << "--------\n Extrapolating " << wfn.getFileName() << "\n";
- 
     this->determineRange();
     this->adjustEnergy();
     
-    types::Uint nX = wfn.nX(), nY = wfn.nY(), nZ = zEndIndex;
+    types::Uint nX = wfn.nX(), nY = wfn.nY(), nZ = zEndIndex + 1;
     wfn.grid.resize(nX, nY, nZ);
+    
+    // Need some info on the grid
+    // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
+    la::Cell cell = la::Cell(wfn.grid.directions);
+    Real dX = wfn.grid.directions[0].getIncrementVector()[0];
+    Real dY = wfn.grid.directions[1].getIncrementVector()[1];
+    Real dZ = wfn.grid.directions[2].getIncrementVector()[2];
+    Real dKX = 2 * M_PI * dZ / (dX * Real(nX));
+    Real dKY = 2 * M_PI * dZ / (dY * Real(nY));
+    Real E = wfn.getEnergy() * dZ * dZ;
+
     Array<types::Real,3> dataArray(
         &wfn.grid.data[0],
         shape(nX, nY, nZ),
         neverDeleteData);
-
-
+    
     if ( mode == constantZ ){
         // Do a real 2 complex fft
         // Since a(-k)=a(k)^* (or in terms of indices: a[n-k]=a[k]^*)
@@ -293,36 +311,28 @@ void WfnExtrapolation::execute(){
         // simplicity of calculation, we prepare them here for (nX, nY/2+1) = (nXF,nYF).
         t = clock();
         Array<types::Real,2> prefactors(nXF, nYF);
-        // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
-        types::Real energyTerm = 2 * wfn.energy;
-        std::cout << "Energy level " << wfn.energy << " Ha\n";
-        types::Real deltaZ = wfn.grid.directions[2].getIncrementVector()[2];
-        la::Cell cell = la::Cell(wfn.grid.directions);
-        vector<types::Real> X = cell.vector(0);
-        vector<types::Real> Y = cell.vector(1);
-        types::Real dKX = 2 * M_PI / X[0];
-        types::Real dKY = 2 * M_PI / Y[1];
 
         // Notice that the order of storage is 0...G -G...-1 for uneven nX
         // and 0...G-1 G -(G-1)...-1 for even NX
-        prefactors( Range(0, nXF/2), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+        prefactors( Range(0, nXF/2), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - 2 * E) );
         // tensor::i always starts from 0, i.e. it ranges from 0...nXF/2-1 (nX even) or 0...nXF/2 (nX uneven)
         if(nX % 2 == 1)
-            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - 2 * E) );
         else
-            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 -1 - tensor::i) * dKX * (nXF/2 - 1 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 -1 - tensor::i) * dKX * (nXF/2 - 1 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - 2 * E) );
 
         // Sequentially update the cube file
         Array<types::Real,2> tempDirect(nX, nY);
         Array<types::Complex,2> tempFourier(nXF, nYF);
         fftw_plan plan_backward;
-        for(int zIndex = zStartIndex + 1; zIndex <= zEndIndex; ++zIndex) {
+        for(int zIndex = zStartIndex + 1; zIndex < nZ; ++zIndex) {
             // Propagate fourier coefficients
             planeFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
 
             // The c2r transform destroys its input
             tempFourier = planeFourier;
             plan_backward = fftw_plan_dft_c2r_2d(nX, nY, (fftw_complex*) tempFourier.data(), tempDirect.data(), FFTW_ESTIMATE);
+
 
             // Do Fourier-back transform
             fftw_execute(plan_backward); /* repeat as needed */
@@ -341,122 +351,221 @@ void WfnExtrapolation::execute(){
         
         // Build matrix for modified Fourier transform
         Uint n = nX * nY;
-        Uint iX, iY;
-        Real kX, kY, kZ;
-
-        std::vector<Complex> A;
-        for(Uint i = 0; i < n; ++i){
-            for(Uint j = 0; j < n; ++j){
-
-                iX = i & nY; iY = i / nY;
-                if( 2* iX > nX) kX = (nX - i)/ Real( nX );
-                else kX = i / Real( nX );
-                if( 2* iY > nY) kY = (nY - i)/ Real( nY );
-                else kY = i / Real( nY );
-
-                kZ = sqrt( 2 * wfn.getEnergy() + kX * kX + kY * kY);
-               
-                // Need transposed matrix for Fortran lapack
-                A[i + j*n] = exp( 
-                            2.0 * M_PI * Complex(0,1) * 
-                            ( Real(i % nY) * Real(j % nY) + 
-                              Real(i / nY) * Real(j / nY) ) / Real(n)
-                            - kZ * (zIndices[i] - zStartIndex) );
-
-            }
-
-        }
-        
-        // Solve the linear system, overwriting values with Fourier coefficients
-        int nVectors = 1; int info; int N = n;
-        std::vector<int> permutations(n);  
-        
-        std::vector<Complex> fourierCoefficients(n);
-        for(Uint i = 0; i < surface.size(); ++i) fourierCoefficients[i] = surface[i];
-        std::cout << "Solving linear system of dimension " << n 
-                  << ", i.e. " << n*n*16 /1024.0/ 1024.0 << " GBytes per matrix\n";
-        t = clock();
-        zgesv_(&N, &nVectors, &*A.begin(), &N, &*permutations.begin(), &*fourierCoefficients.begin(), &N, &info);
-        if( info != 0 ) throw types::runtimeError() 
-                           << types::errinfo_runtime("Linear system could not be solved.");
-       
-        // Now, the resulting coefficients should hopefully be hermitian. We have to check.
-        Real normTot, normNonH; 
-        Complex aIJ, aJI;
-        for(Uint x = 0; x < nX; ++x){
-            for(Uint y = 0; y < nY; ++y){
-                aIJ = fourierCoefficients[x*nY + y];
-                aJI = fourierCoefficients[y*nY + x];
-                 
-                normTot += abs(aIJ *aIJ);
-                normNonH += abs( (aIJ - conj(aJI)) * (aIJ - conj(aJI)));
-            }
-        }
-
-        std::cout << "Frobenius norm of Fourier coefficients: " << sqrt(abs(normTot)) <<
-                     ", Forbenis norm of A-A^H: " << sqrt(abs(normNonH)) << "\n";
-
-
-//        // Calculate the prefactors
-//        // Calculate the exponential prefactors.
-//        // Multiplication of Fourier coefficients with these prefactors
-//        // propagates them to next z plane.
-//        // The prefectors would only need dimensions (nX/2 +1, nY/2 +1)
-//        // since they are the same for G and -G. However for the sake of
-//        // simplicity of calculation, we prepare them here for (nX, nY/2+1) = (nXF,nYF).
-//        t = clock();
-//        Array<types::Real,2> prefactors(nXF, nYF);
-//        // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
-//        types::Real energyTerm = 2 * wfn.energy;
-//        std::cout << "Energy level " << wfn.energy << " Ha\n";
-//        types::Real deltaZ = wfn.grid.directions[2].getIncrementVector()[2];
-//        la::Cell cell = la::Cell(wfn.grid.directions);
-//        vector<types::Real> X = cell.vector(0);
-//        vector<types::Real> Y = cell.vector(1);
-//        types::Real dKX = 2 * M_PI / X[0];
-//        types::Real dKY = 2 * M_PI / Y[1];
+//        // Test (expect only one two single Fourier components)
+//        Real kx1 = 1.0; Real ky1 = 1.0;
+//        Real kx2 = ky1 * dKX; Real ky2 = ky1 * dKY; 
+//        Real kz2 = sqrt( -2.0 * E + kx2 * kx2 + ky2 * ky2);
+//        std::cout << "Testing for kz = " << kz2 << " (in units of 1/z indices)\n";
 //
-//        // Notice that the order of storage is 0...G -G...-1 for uneven nX
-//        // and 0...G-1 G -(G-1)...-1 for even NX
-//        prefactors( Range(0, nXF/2), Range::all())= exp(- sqrt(tensor::i * dKX * tensor::i * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
-//        // tensor::i always starts from 0, i.e. it ranges from 0...nXF/2-1 (nX even) or 0...nXF/2 (nX uneven)
-//        if(nX % 2 == 1)
-//            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
-//        else
-//            prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 -1 - tensor::i) * dKX * (nXF/2 - 1 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - energyTerm) * deltaZ);
+//        for(Uint i = 0; i < nX; ++i){
+//            for(Uint j = 0; j < nY; ++j){
+//                zIndices[i*nY + j] = zStartIndex + (i*nY + j) %10;
 //
-//        fftw_plan plan_backward;
-//        for(int zIndex = zStartIndex + 1; zIndex <= zEndIndex; ++zIndex) {
-//            // Propagate fourier coefficients
-//            planeFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
-//
-//            // The c2r transform destroys its input
-//            tempFourier = planeFourier;
-//            plan_backward = fftw_plan_dft_c2r_2d(nX, nY, (fftw_complex*) tempFourier.data(), tempDirect.data(), FFTW_ESTIMATE);
-//
-//            // Do Fourier-back transform
-//            fftw_execute(plan_backward); /* repeat as needed */
-//            tempDirect /= nX * nY;
-//
-//            // Copy data
-//            dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
+//                // Test 1 (expect only one two single Fourier components)
+//                surface[i*nY  + j] =  sin( 2.0 * M_PI * ( Real(i)* kx1 / Real(nX) + Real(j)*ky1 / Real(nY) ) ) 
+//                                     * exp(-kz2 * ( Real(zIndices[i*nY + j]) - Real(zStartIndex) ) ) ;
+//                // Test 2 (more realistic, expect exponentially increasing fourier components)
+//                surface[i*nY  + j] =  sin( 2.0 * M_PI * ( Real(i)* kx1 / Real(nX) + Real(j)*ky1 / Real(nY) ) ) ;
+//                //                std::cout << A[i + j*n] << " ";
+//            }
 //        }
-//
-//        fftw_destroy_plan(plan_forward);
-//        fftw_destroy_plan(plan_backward);
+
+        
+        // May decide to take only low-freq fourier components
+        std::cout << "Original number of wave vectors: kx,ky = " 
+                  << nX << "," << nY << "\n";
+        int  zSpan = int(zSurfEndIndex) - int(zStartIndex);
+        Real kXMax = nX/2.0 * dKX;
+        Real kYMax = nY/2.0 * dKY;
+
+        Real minExpGoal = this->decayCutoff * dZ * log(10.0);
+        Real scaling = sqrt( ( Real(minExpGoal) * Real(minExpGoal) / (Real(zSpan) * Real(zSpan))  + 2*E)
+                             / (Real(kXMax) * Real(kXMax) + Real(kYMax) * Real(kYMax)) );
+        int nKX = nX, nKY = nY;
+        int nK  = nKX * nKY;
+        if(scaling < 1.0){
+            nKX = int( scaling * nX);
+            nKY = int( scaling * nY);
+            nK = nKX * nKY;
+            std::cout << "Retain just low frequencies: kx,ky = " << nKX << "," << nKY << "\n";
+        }
+        Real minExp = - sqrt( -2.0 * E
+                      + nKX/2.0 * dKX * nKX/2.0 * dKX 
+                      + nKY/2.0 * dKY * nKY/2.0 *dKY) * ( Real(zSurfEndIndex) - Real(zStartIndex));
+        std::cout << "Strongest decay is exp(" << minExp << ") = " 
+                  << exp(minExp) << " per z-index.\n";
+
+        std::cout << "Matrix dimension is " << n << "x" << nK 
+                  << ", i.e. " << Real(nLayers*n*nK*8)  / (1024.0 * 1024.0) << " MBytes per matrix\n";
+        
+        std::vector<Real> A(n*nK*nLayers);
+        int iX, iY, jX, jY;
+        Real kX, kY, kZ;
+        Real Arg;
+        t = clock();
+
+        for(Uint l = 0; l < nLayers; ++l){
+
+            for(Uint i = 0; i < n; ++i){
+                iX = i / nY; iY = i % nY;
+                for(Uint j = 0; j < nK; ++j){
+
+                    jX = j / nKY; jX = (2* jX > nKX) ?  jX - nKX : jX;                    
+                    jY = j % nKY; jY = (2* jY > nKY) ?  jY - nKY : jY;
+
+                    kX = jX * dKX;
+                    kY = jY * dKY;
+                    kZ = sqrt( -2.0 * E + kX * kX+ kY * kY);
+                    Arg = 2.0 * M_PI * ( Real(iX) * Real(jX) / Real(nX)  + Real(iY) * Real(jY) / Real(nY) );
+
+                    // Can specify transposed matrix for zgels (no need to transpose here)
+                    A[l*n+i + j*n*nLayers] = (sin(Arg) + cos(Arg)) *
+                                             exp(- kZ * (Real(zIndices[i]) - Real(l) - Real(zStartIndex) ) );
+                }
+            }
+        }
+        std::cout << "Matrix created in : " << (clock() -t)/1000.0 << " ms\n";
+      
+
+        // Prepare wave function values
+        int iZ;
+        std::vector<Real> fourier(n*nLayers);
+        for(Uint l = 0; l < nLayers; ++l){
+            for(Uint i = 0; i < n; ++i){
+                iX = i/nY;
+                iY = i%nY;
+                iZ = int(zIndices[i]) - int(l);
+                fourier[l*n + i] = wfn.grid.data[iX*nY*nZ+ iY*nZ + iZ];
+            }
+        }
+   
+
+        // Solve the linear system
+        char TRANS_ = 'N';
+        int  M_     = n*nLayers;
+        int  N_     = nK;
+        int  NRHS_  = 1;
+        std::vector<Real> S(N_);
+        Real RCOND_ = 1e-5;
+        int  RANK_;
+        std::vector<Real> work(1);
+        int  LWORK_ = -1;
+        std::vector<int> iwork(1);
+        int  ILWORK_ = -1;
+        int  INFO_  = 0;
+        // Writes correct work dimensions to work[0], iwork[0]
+        // SUBROUTINE DGELSD( M, N, NRHS, A, LDA, B, LDB, S, RCOND, RANK,
+        //              $                   WORK, LWORK, IWORK, INFO )
+        dgelsd_(&M_, &N_, &NRHS_, 
+                &*A.begin(), &M_, 
+                &*fourier.begin(), &M_, 
+                &*S.begin(), &RCOND_, &RANK_,
+                &*work.begin(), &LWORK_, &*iwork.begin(),
+                &INFO_);
+        LWORK_ = int(abs(work[0])); 
+        work =  std::vector<Real>(LWORK_);
+        ILWORK_ = int(abs(iwork[0])); 
+        iwork =  std::vector<int>(ILWORK_);
+
+        // Now solve this little puzzle
+        std::cout << "Starting optimization of overdetermined system\n"; 
+        t = clock();
+        
+        dgelsd_(&M_, &N_, &NRHS_, 
+                &*A.begin(), &M_, 
+                &*fourier.begin(), &M_, 
+                &*S.begin(), &RCOND_, &RANK_,
+                &*work.begin(), &LWORK_, &*iwork.begin(),
+                &INFO_);
+//        dgels_(&TRANS_, &M_, &N_, &NRHS_, 
+//                &*A.begin(), &M_, 
+//                &*fourier.begin(), &M_, 
+//                &*work.begin(), &LWORK_,
+//                &INFO_);
+        if( INFO_ != 0 ){
+            std::cout << "Errorcode: " << INFO_ << "\n";
+            throw types::runtimeError() 
+                           << types::errinfo_runtime("Linear system could not be solved.");
+        }
+        std::cout << "Found solution in : " << (clock() -t)/1000.0 << " ms\n";
+        
+        for(int i = 0; i<S.size();++i) std::cout << S[i] << "\n"; 
+       
+        // Plotting the coefficients of the hartley transform
+        types::String s = formats::gnuplot::writeMatrix<Real>(fourier, nKX, nKY);
+        String fourierFile = io::getFileName(wfn.getFileName()) + ".fourier";
+        io::writeStream(fourierFile, s);
+
+        // Re-layout fourier components
+        std::vector<Real> tmp = fourier;
+        fourier = std::vector<Real>(nX*nY, 0.0);
+        Real i2, j2;
+        for(int i = 0; i < nKX; ++i){
+            i2 = (2 * i > nKX) ? int(nX) + i - nKX : i;
+            for(int j = 0; j < nKY; ++j){
+                j2 = (2 * j > nKY) ? int(nY) + j - nKY : j;
+                fourier[i2 * nY + j2] = tmp[i* nKY + j];
+            }
+        }
+        // Plotting the coefficients2 of the hartley transform
+        s = formats::gnuplot::writeMatrix<Real>(fourier, nX, nY);
+        fourierFile = io::getFileName(wfn.getFileName()) + ".fourier2";
+        io::writeStream(fourierFile, s);
+        
+        // Calculating the exponential prefactors to propagate coefficients to
+        // next z plane
+        t = clock();
+        std::vector<Real> pref(nX*nY);    
+        for(int i = 0; i < nX; ++i){
+            kX = (2*i > nX) ? i - int(nX) : i;
+            kX *= dKX;
+            for(int j = 0; j < nY; ++j){
+                kY = (2*j > nY) ? j - int(nY) : j;
+                kY *= dKY;
+                kZ = sqrt( -2.0 * E + kX * kX+ kY * kY);
+                pref[i*nY + j] = exp(- kZ );
+            }
+        }
+        
+
+        Array<types::Real,2> prefactors(
+                &pref[0],
+                shape(nX, nY),
+                neverDeleteData);
+
+        Array<types::Real,2> planeFourier(
+                &fourier[0],
+                shape(nX, nY),
+                neverDeleteData);
+        Array<types::Real,2> tempFourier(nX, nY);
+        Array<types::Real,2> tempDirect(nX, nY);
+        fftw_plan plan_backward;
+        
+        for(int zIndex = zStartIndex+1; zIndex < nZ; ++zIndex) {
+            // Propagate hartley coefficients (could use matmul here)
+            planeFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
+
+            // The c2r transform destroys its input (also the hartley?? ->check)
+            tempFourier = planeFourier;
+            plan_backward = fftw_plan_r2r_2d(nX, nY, (double*) tempFourier.data(), tempDirect.data(), FFTW_DHT, FFTW_DHT, FFTW_ESTIMATE);
+
+            // Perform hartley-back-transform
+            fftw_execute(plan_backward);
+
+            // Copy data
+            if (zIndex > zSurfEndIndex) dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
+            else {
+                for(int x = 0; x < nX; ++x){
+                    for(int y = 0; y < nY; ++y){
+                        if (zIndex > zIndices[x*nY + y]) 
+                            dataArray(x, y, zIndex) = tempDirect(x, y);
+                    }
+                }
+            }
+
+        }
+        fftw_destroy_plan(plan_backward);
     }
-
-
-
-    //    // Produce Fourier coefficient for gnuplot    
-    //    types::Complex *pt =  reinterpret_cast<types::Complex *>(out);
-    //    for(types::Uint i = 0; i < nXF; ++i){
-    //            for(types::Uint j = 0;j< nYF; ++j){
-    //                    std::cout << std::abs(*pt) << " ";
-    //                    ++pt;
-    //            }
-    //            std::cout << std::endl;
-    //    }
 
 
     std::cout << "Time to extrapolate : " << (clock() -t)/1000.0 << " ms\n";
@@ -466,7 +575,7 @@ void WfnExtrapolation::execute(){
 void WfnExtrapolation::determineRange(){
     using namespace blitz;
 
-    WfnCube tmp = wfn;
+    WfnCube tmp(wfn);
 
     if( mode == constantZ ) {
         // Find highest z-coordinate
@@ -491,6 +600,7 @@ void WfnExtrapolation::determineRange(){
         std::vector<types::Uint> indices;
         wfn.grid.getNearestIndices(tempvector, indices);
         this->zStartIndex = indices[2];
+        this->zSurfEndIndex = indices[2];
         std::cout << "Fourier transform will be performed at z-index " 
             << zStartIndex << "\n";
         tempvector[2] += zWidth;
@@ -504,20 +614,30 @@ void WfnExtrapolation::determineRange(){
                 neverDeleteData);
         Array<types::Real,2> plane = dataArray(Range::all(), Range::all(), zStartIndex);
         this->surface.assign(plane.begin(), plane.end());
+        this->zIndices = std::vector<Uint> (wfn.nX() * wfn.nY(), zStartIndex);
     }
 
     else if ( mode == isoSurface ) {
-        tmp.abs();
-        tmp.grid.zIsoSurfaceOnGrid(isoValue, this->zIndices, this->surface);
+        if (approachFrom < 0) const_cast<Cube *>(hartree)->grid.zIsoSurfaceOnGrid(isoValue, this->zIndices);
+        else                  const_cast<Cube *>(hartree)->grid.zIsoSurfaceOnGrid(isoValue, this->zIndices, approachFrom);
+        wfn.grid.zSurface(this->zIndices, this->surface);
+        
+        types::String s = formats::gnuplot::writeMatrix<Real>(this->surface, wfn.nX(), wfn.nY());
+        String surfaFile = io::getFileName(wfn.getFileName()) + ".exsurf";
+        io::writeStream(surfaFile, s);
+        s = formats::gnuplot::writeMatrix<Uint>(this->zIndices, wfn.nX(), wfn.nY());
+        surfaFile = io::getFileName(wfn.getFileName()) + ".zindices";
+        io::writeStream(surfaFile, s);
+        
         Array<types::Uint,2> zIndicesBlitz(
                 &zIndices[0],
                 shape(wfn.nX(), wfn.nY()),
                 neverDeleteData);
-    
-    
+        
         zStartIndex = min(zIndicesBlitz);
         Real dZ = wfn.grid.directions[2].getIncrementVector()[2];
-        zEndIndex = max(zIndicesBlitz) + Uint(zWidth / dZ);
+        zSurfEndIndex = max(zIndicesBlitz);
+        zEndIndex = zSurfEndIndex + Uint(zWidth / dZ);
 
         std::cout << "Isosurface ranges from z = " << zStartIndex * dZ 
                   << " to " << max(zIndicesBlitz) * dZ << " [a.u.]\n";
@@ -537,47 +657,24 @@ void WfnExtrapolation::determineRange(){
 void WfnExtrapolation::adjustEnergy(){
     using namespace blitz;
 
-    Real vacuumPotential = 0;
+    std::vector<Real> hartreeVector;
+    (const_cast<Cube *>(hartree))->grid.zSurface(zIndices, hartreeVector);
+    Array<Real, 2> hartreeSurface (
+            &hartreeVector[0],
+            shape(hartree->nX(), hartree->nY()),
+            neverDeleteData);
+    Real vacuumPotential = mean(hartreeSurface);
 
-    if (mode == constantZ ) {
-        // Get z-plane for interpolation
-        Array<types::Real,3> dataArray(
-                const_cast<Real*>(&(hartree->grid.data[0])),
-                shape(hartree->nX(), hartree->nY(), hartree->nZ()),
-                neverDeleteData);
-        Array<types::Real,2> hartreePlane = dataArray(Range::all(), Range::all(), zStartIndex);
-        
-        // Shift levels by "vacuum" Hartree potential
-        // (aveaged value at zStartIndex)
-        vacuumPotential = mean(hartreePlane);
-        std::cout << "Vacuum hartree potential is " << vacuumPotential << " Ha\n";
-        
-        hartreePlane    = dataArray(Range::all(), Range::all(), zEndIndex);
-        Real hartreeEnd = mean(hartreePlane);
-        std::cout << "Hartree potential changes by " << 
-            hartreeEnd - vacuumPotential << " Ha over extrapolation region.\n";
-
-//        // Write z plane of hartree potential for gnuplot
-//        std::vector<types::Real> hartreePlane;
-//        hartree.getZPlane(zStartIndex, hartreePlane);
-//        types::String s = formats::gnuplot::writeMatrix(
-//                hartreePlane,
-//                hartree.grid.directions[0].getNElements(),
-//                hartree.grid.directions[1].getNElements());
-//        io::writeStream("hartree.zplane",s);
-    }
-    else if (mode == isoSurface){
-        std::vector<Real> hartreeValues;
-        const_cast<Cube *>(hartree)->grid.zSurface(zIndices, hartreeValues);
-        Array<types::Real,2> hartreeBlitz(
-                &hartreeValues[0],
-                shape(hartree->nX(), hartree->nY()),
-                neverDeleteData);
-        vacuumPotential = mean(hartreeBlitz);
-        std::cout << "Vacuum hartree potential is " << vacuumPotential << " Ha\n";
-    }
-    
+    std::cout << "Vacuum hartree potential is " << vacuumPotential << " Ha\n";
+ 
     wfn.setEnergy( wfn.getEnergy()- vacuumPotential);
+    std::cout << "Energy level " << wfn.getEnergy() << " Ha\n";
+
+
+    // Print hartree potential for gnuplot
+    types::String s = formats::gnuplot::writeMatrix(hartreeVector, hartree->nX(), hartree->nY());
+    String surfaceFile = io::getFileName(hartree->getFileName()) + ".exsurf";
+    io::writeStream(surfaceFile, s);
 
 }
 

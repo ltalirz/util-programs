@@ -10,7 +10,6 @@
 #include <string>
 
 #include <boost/program_options.hpp>
-#include <blitz/array.h>
 
 
 #include <ctime>
@@ -32,7 +31,10 @@ bool prepare(types::String levelFileName,
              types::String mode,
              double start,
              double width,
-             double isoValue
+             double isoValue,
+             double approachFrom,
+             double decayCutoff,
+             types::Uint nLayers
              );
 
 int main(int ac, char* av[]) {
@@ -45,7 +47,10 @@ int main(int ac, char* av[]) {
                 args["mode"].as< types::String >(),
                 args["start"].as< double >(),
                 args["width"].as< double >(),
-                args["isoValue"].as< double >()
+                args["isovalue"].as< double >(),
+                args["approach-from"].as< double >(),
+                args["decay-cutoff"].as< double >(),
+                args["nlayers"].as< types::Uint >()
                );
 
     }
@@ -59,7 +64,10 @@ bool prepare(types::String levelFileName,
              types::String mode,
              double start,
              double width,
-             double isoValue
+             double isoValue,
+             double approachFrom,
+             double decayCutoff,
+             types::Uint nLayers
             ){
 
     // Read energy levels
@@ -108,8 +116,13 @@ bool prepare(types::String levelFileName,
                 hartree,
                 m,
                 var1,
-                width);
+                width,
+                approachFrom,
+                decayCutoff,
+                nLayers
+                );
         extrapolation.execute();
+        extrapolation.writeWfnCube();
     }
 
     return true;
@@ -126,13 +139,16 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     ("help,h", "produce help message")
     ("version,v", "print version information")
     ("input-file,i", po::value<types::String>(&input_file), "Input file specifying all or several of the following options")
-     ("levels", po::value<types::String>(), "CP2K output file containing energy levels")
+    ("levels", po::value<types::String>(), "CP2K output file containing energy levels")
     ("cubelist", po::value<types::String>(), "file with list of wavefunction cubes you wish to extrapolate")
     ("hartree", po::value<types::String>(), "cube file of hartree potential from CP2K")
-    ("mode", po::value<types::String>()->default_value("constant-z"), "may be 'constant-z' or 'isoSurface'")
+    ("mode", po::value<types::String>()->default_value("constant-z"), "may be 'constant-z' or 'isosurface'")
     ("start", po::value<double>()->default_value(5), "mode 'constant-z': distance between extrapolation plane and outermost atom in a.u.")
     ("width", po::value<double>()->default_value(15), "length of extrapolation in a.u.")
-    ("isoValue", po::value<double>()->default_value(1e-4), "mode 'isoSurface': isoValue of wavefunction [a.u.] ")
+    ("isovalue", po::value<double>()->default_value(1e-4), "mode 'isosurface': isovalue of wavefunction [a.u.] ")
+    ("approach-from", po::value<double>()->default_value(-1.0), "mode 'isosurface': z [a.u.] from where you want to go down to find the isosurface (default: top z of cube file).")
+    ("decay-cutoff", po::value<double>()->default_value(100.0), "Maximum decay constant k [1/a.u.] to be retained for z decay  10^(-k*z).")
+    ("nlayers", po::value<types::Uint>()->default_value(2), "Number of layers to fit the wave function.")
     ;
 
     // Register positional options
@@ -160,17 +176,19 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
         std::cout << "Usage: extrapolate [options]\n";
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
-        std::cout << "July 15th 2012\n";
+        std::cout << "July 31st 2012\n";
     } else if ( vm.count("mode")  && 
                 vm["mode"].as< types::String >() != "constant-z" && 
-                vm["mode"].as< types::String >() != "isoSurface") {
+                vm["mode"].as< types::String >() != "isosurface") {
                 std::cout << "Error: invalid mode specified.\n";
     } else if ( (!vm.count("mode")  || vm["mode"].as< types::String >() == "constant-z") &&
                !(vm.count("start") && vm.count("width"))) {
                 std::cout << "Error: Need to specify 'start' and 'width' for mode='constant-z'.\n";
-    } else if ( vm["mode"].as< types::String >() == "isoSurface" &&
-               !(vm.count("isoValue") && vm.count("width"))) {
-                std::cout << "Error: Need to specify 'isoValue' and 'width' for mode='isoSurface'.\n";
+    } else if ( vm["mode"].as< types::String >() == "isosurface" &&
+               !(vm.count("isovalue") && vm.count("width"))) {
+                std::cout << "Error: Need to specify 'isovalue' and 'width' for mode='isosurface'.\n";
+    } else if ( vm["decay-cutoff"].as< types::Real >() < 0 ){
+                std::cout << "Error: Decay constant must be non-negative.\n";
     } else {
         return true;
     }

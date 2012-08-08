@@ -2,3 +2,47 @@ V1 used matrix inversion plus some wrapper from the web and needed
    7.5GB memory plus 15 minutes run time on an infinijazz node
 V2 solved the linear system and used 3GB plus 5 minutes runtime on an
    infiniband node. The 3GB will still be halved.
+
+
+
+1d case:
+
+- Letting j range from -N/2 to +N/2 increases numerical accuracy w.r.t.
+  letting j range from 0 to N
+  => Always do this.
+- For values at z[i]=i the noise at high-frequency components is many orders
+  of magnitude larger than the (correct) values at low-frequency
+- Double precision numbers range from 10^-308 to 10^308, i.e. e^-708 to e^708
+  Neglecting the energy, the real part of the exponent is 
+  - sqrt( (j/N)^2 ) * z[i] = - j * z[i] /N
+  For high frequencies, j reaches up to N, so the minimum exponent is -z[i].
+  I.e. we absolutely cannot do more than 708 steps.
+- Relative accuracy is, however much lower - in the range of 10^-15, i.e. e^-35
+- In Reality, the maximum of the high-frequency noise is reached at maximum
+  frequency and develops as follows  (correct frequencies sum up to 1)
+
+# nsteps   max
+  40       1e-9 
+  50       1e-7
+  60       1e-5
+  70       1e-3
+
+- The high-frequency noise does not take away from the correct low-frequency
+  Fourier components. Since the high frequencies will decay quickly,
+  even large fourier components 
+  will not matter a lot beyond the highest point of the extrapolation plane.
+  However, the wave function will not be correct *in between* the lowest and
+  highest z of the extrapolation plane.
+  For STM images, it will typically not be needed there, but it might be and
+  we want to plot it.
+
+
+2d case:
+-   The exponent is given by (neglecting E)
+  -sqrt( (j/nX)^2 + (k/nY)^2 ) * z[i] , i.e. minimum at -sqrt(2) z[i]
+-   Note that the high exponents are also reached by less numbers in the matrix.
+    I.e. precision problems should be more or less comparable
+
+- Connection to experiment: A good cube file has a z grid of 0.1 Angstroms.
+  I.e. to go 5 angstroms, we need 50 steps, which may still be ok.
+
