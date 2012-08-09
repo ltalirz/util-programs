@@ -297,12 +297,23 @@ void WfnExtrapolation::execute(){
         
         fftw_plan plan_forward = fftw_plan_dft_r2c_2d(nX, nY, planeDirect.data(), out, FFTW_ESTIMATE);
         fftw_execute(plan_forward);
+        
 
         Array<types::Complex,2> planeFourier(
                 reinterpret_cast<types::Complex *>(out),
                 shape(nXF, nYF),
                 neverDeleteData);
 
+        std::vector<Real> fourierReal(nXF*nYF);
+        for(int i =0;i<nXF;++i)
+        for(int j =0;j<nYF;++j)
+            fourierReal[i] = abs(planeFourier(i,j));
+        // Plotting the coefficients2 of the hartley transform
+        String s = formats::gnuplot::writeMatrix<Real>(fourierReal, nXF, nYF);
+        String hartleyFile = io::getFileName(wfn.getFileName()) + ".fourier";
+        io::writeStream(hartleyFile, s);
+        
+        
         // Calculate the exponential prefactors.
         // Multiplication of Fourier coefficients with these prefactors
         // propagates them to next z plane.
@@ -397,6 +408,13 @@ void WfnExtrapolation::execute(){
 
         std::cout << "Matrix dimension is " << n << "x" << nK 
                   << ", i.e. " << Real(nLayers*n*nK*8)  / (1024.0 * 1024.0) << " MBytes per matrix\n";
+       
+        // Test: Extrapolation on plane
+        for(int i = 0; i < zIndices.size();++i){
+            zIndices[i] = 128;
+        }
+        this->zSurfEndIndex = 128;
+        this->zStartIndex = 128;
         
         std::vector<Real> A(n*nK*nLayers);
         int iX, iY, jX, jY;
@@ -410,32 +428,36 @@ void WfnExtrapolation::execute(){
                 iX = i / nY; iY = i % nY;
                 for(Uint j = 0; j < nK; ++j){
 
-                    jX = j / nKY; jX = (2* jX > nKX) ?  jX - nKX : jX;                    
-                    jY = j % nKY; jY = (2* jY > nKY) ?  jY - nKY : jY;
+                    jX = j / nKY; jX = (2* jX < nKX) ? jX : jX - nKX ;                    
+                    jY = j % nKY; jY = (2* jY < nKY) ? jY : jY - nKY ;
 
                     kX = jX * dKX;
                     kY = jY * dKY;
                     kZ = sqrt( -2.0 * E + kX * kX+ kY * kY);
                     Arg = 2.0 * M_PI * ( Real(iX) * Real(jX) / Real(nX)  + Real(iY) * Real(jY) / Real(nY) );
 
-                    // Can specify transposed matrix for zgels (no need to transpose here)
+                    // Need transposed matrix for Fortran
                     A[l*n+i + j*n*nLayers] = (sin(Arg) + cos(Arg)) *
                                              exp(- kZ * (Real(zIndices[i]) - Real(l) - Real(zStartIndex) ) );
                 }
             }
         }
         std::cout << "Matrix created in : " << (clock() -t)/1000.0 << " ms\n";
-      
+     
+
+
 
         // Prepare wave function values
         int iZ;
-        std::vector<Real> fourier(n*nLayers);
+        std::vector<Real> hartley(n*nLayers);
         for(Uint l = 0; l < nLayers; ++l){
             for(Uint i = 0; i < n; ++i){
                 iX = i/nY;
                 iY = i%nY;
                 iZ = int(zIndices[i]) - int(l);
-                fourier[l*n + i] = wfn.grid.data[iX*nY*nZ+ iY*nZ + iZ];
+                hartley[l*n + i] = wfn.grid.data[iX*nY*nZ+ iY*nZ + iZ];
+                //Test 
+                //hartley[l*n + i] = sin(2* M_PI * (2.0*Real(iX) /Real(nX) + 3.0*Real(iY)/Real(nY)));
             }
         }
    
@@ -458,7 +480,7 @@ void WfnExtrapolation::execute(){
         //              $                   WORK, LWORK, IWORK, INFO )
         dgelsd_(&M_, &N_, &NRHS_, 
                 &*A.begin(), &M_, 
-                &*fourier.begin(), &M_, 
+                &*hartley.begin(), &M_, 
                 &*S.begin(), &RCOND_, &RANK_,
                 &*work.begin(), &LWORK_, &*iwork.begin(),
                 &INFO_);
@@ -473,13 +495,13 @@ void WfnExtrapolation::execute(){
         
         dgelsd_(&M_, &N_, &NRHS_, 
                 &*A.begin(), &M_, 
-                &*fourier.begin(), &M_, 
+                &*hartley.begin(), &M_, 
                 &*S.begin(), &RCOND_, &RANK_,
                 &*work.begin(), &LWORK_, &*iwork.begin(),
                 &INFO_);
 //        dgels_(&TRANS_, &M_, &N_, &NRHS_, 
 //                &*A.begin(), &M_, 
-//                &*fourier.begin(), &M_, 
+//                &*hartley.begin(), &M_, 
 //                &*work.begin(), &LWORK_,
 //                &INFO_);
         if( INFO_ != 0 ){
@@ -489,55 +511,80 @@ void WfnExtrapolation::execute(){
         }
         std::cout << "Found solution in : " << (clock() -t)/1000.0 << " ms\n";
         
+        // Print residuum
         for(int i = 0; i<S.size();++i) std::cout << S[i] << "\n"; 
        
         // Plotting the coefficients of the hartley transform
-        types::String s = formats::gnuplot::writeMatrix<Real>(fourier, nKX, nKY);
-        String fourierFile = io::getFileName(wfn.getFileName()) + ".fourier";
-        io::writeStream(fourierFile, s);
+        types::String s = formats::gnuplot::writeMatrix<Real>(hartley, nKX, nKY);
+        String hartleyFile = io::getFileName(wfn.getFileName()) + ".hartley";
+        io::writeStream(hartleyFile, s);
 
-        // Re-layout fourier components
-        std::vector<Real> tmp = fourier;
-        fourier = std::vector<Real>(nX*nY, 0.0);
+        // Re-layout hartley components
+        std::vector<Real> tmp = hartley;
+        hartley = std::vector<Real>(nX*nY, 0.0);
         Real i2, j2;
         for(int i = 0; i < nKX; ++i){
-            i2 = (2 * i > nKX) ? int(nX) + i - nKX : i;
+            i2 = (2 * i < nKX) ? i :  int(nX) + i - nKX ;
             for(int j = 0; j < nKY; ++j){
-                j2 = (2 * j > nKY) ? int(nY) + j - nKY : j;
-                fourier[i2 * nY + j2] = tmp[i* nKY + j];
+                j2 = (2 * j < nKY) ? j : int(nY) + j - nKY;
+                hartley[i2 * nY + j2] = tmp[i* nKY + j];
             }
         }
         // Plotting the coefficients2 of the hartley transform
-        s = formats::gnuplot::writeMatrix<Real>(fourier, nX, nY);
-        fourierFile = io::getFileName(wfn.getFileName()) + ".fourier2";
-        io::writeStream(fourierFile, s);
+        s = formats::gnuplot::writeMatrix<Real>(hartley, nX, nY);
+        hartleyFile = io::getFileName(wfn.getFileName()) + ".hartley2";
+        io::writeStream(hartleyFile, s);
+
+        // Producing Fourier transform
+        int nXF = nX; int nYF = nY/2 +1;
+        std::vector<Complex> fourier(nXF*nYF);
+        int iT,jT;
+        for(int i = 0; i < nXF; ++i){
+            for(int j = 0; j < nYF; ++j){
+                iT = (int(nX) - i) % nX;
+                jT = (int(nY) - j) % nY;
+
+                fourier[i*nYF+j] = 
+                    1/2.0 * (               hartley[i*nY+j] + hartley[iT*nY+jT] +
+                           Complex(0,1.0)*( hartley[i*nY+j] - hartley[iT*nY+jT]) );
+            }
+        }
+
+        std::vector<Real> fourierReal(fourier.size());
+        for(int i =0;i<fourierReal.size();++i)
+            fourierReal[i] = abs(fourier[i]);
+        // Plotting the coefficients2 of the hartley transform
+        s = formats::gnuplot::writeMatrix<Real>(fourierReal, nXF, nYF);
+        hartleyFile = io::getFileName(wfn.getFileName()) + ".fourier";
+        io::writeStream(hartleyFile, s);
+
         
         // Calculating the exponential prefactors to propagate coefficients to
         // next z plane
         t = clock();
-        std::vector<Real> pref(nX*nY);    
-        for(int i = 0; i < nX; ++i){
-            kX = (2*i > nX) ? i - int(nX) : i;
+        std::vector<Real> pref(nXF*nYF);    
+        for(int i = 0; i < nXF; ++i){
+            kX = (2*i < nX) ? i : i - int(nX) ;
             kX *= dKX;
-            for(int j = 0; j < nY; ++j){
-                kY = (2*j > nY) ? j - int(nY) : j;
+            for(int j = 0; j < nYF; ++j){
+                kY = (2*j < nY) ? j : j - int(nY);
                 kY *= dKY;
                 kZ = sqrt( -2.0 * E + kX * kX+ kY * kY);
-                pref[i*nY + j] = exp(- kZ );
+                pref[i*nYF + j] = exp(- kZ );
             }
         }
         
 
         Array<types::Real,2> prefactors(
                 &pref[0],
-                shape(nX, nY),
+                shape(nXF, nYF),
                 neverDeleteData);
 
-        Array<types::Real,2> planeFourier(
+        Array<types::Complex,2> planeFourier(
                 &fourier[0],
-                shape(nX, nY),
+                shape(nXF, nYF),
                 neverDeleteData);
-        Array<types::Real,2> tempFourier(nX, nY);
+        Array<types::Complex,2> tempFourier(nXF, nYF);
         Array<types::Real,2> tempDirect(nX, nY);
         fftw_plan plan_backward;
         
@@ -547,18 +594,27 @@ void WfnExtrapolation::execute(){
 
             // The c2r transform destroys its input (also the hartley?? ->check)
             tempFourier = planeFourier;
-            plan_backward = fftw_plan_r2r_2d(nX, nY, (double*) tempFourier.data(), tempDirect.data(), FFTW_DHT, FFTW_DHT, FFTW_ESTIMATE);
+            plan_backward = fftw_plan_dft_c2r_2d(
+                    nX, nY, 
+                    (fftw_complex*) tempFourier.data(), 
+                    tempDirect.data(), 
+                    FFTW_ESTIMATE);
 
-            // Perform hartley-back-transform
+            // Perform Fourier transform backwards
             fftw_execute(plan_backward);
 
+            //std::vector<Real> tmp; tmp.assign(tempDirect.begin(), tempDirect.end());
+            //tempDirect /= nX*nY / (nKX*nKY);
+
             // Copy data
-            if (zIndex > zSurfEndIndex) dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
+            //if (zIndex > zSurfEndIndex) dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
+            if (false){}
             else {
                 for(int x = 0; x < nX; ++x){
                     for(int y = 0; y < nY; ++y){
-                        if (zIndex > zIndices[x*nY + y]) 
+                        if (zIndex > zIndices[x*nY + y]) {
                             dataArray(x, y, zIndex) = tempDirect(x, y);
+                        }
                     }
                 }
             }
