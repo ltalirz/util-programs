@@ -303,11 +303,14 @@ void WfnExtrapolation::execute(){
                 reinterpret_cast<types::Complex *>(out),
                 shape(nXF, nYF),
                 neverDeleteData);
+        planeFourier /= nX*nY;
 
+        std::cout << planeFourier;
+        planeFourier *= nX*nY;
         std::vector<Real> fourierReal(nXF*nYF);
         for(int i =0;i<nXF;++i)
         for(int j =0;j<nYF;++j)
-            fourierReal[i] = abs(planeFourier(i,j));
+            fourierReal[i*nYF+j] = abs(planeFourier(i,j));
         // Plotting the coefficients2 of the hartley transform
         String s = formats::gnuplot::writeMatrix<Real>(fourierReal, nXF, nYF);
         String hartleyFile = io::getFileName(wfn.getFileName()) + ".fourier";
@@ -331,6 +334,8 @@ void WfnExtrapolation::execute(){
             prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 - tensor::i) * dKX * (nXF/2 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - 2 * E) );
         else
             prefactors( Range(nXF/2 + 1, nXF - 1), Range::all())= exp(- sqrt( (nXF/2 -1 - tensor::i) * dKX * (nXF/2 - 1 - tensor::i) * dKX + tensor::j *dKY * tensor::j * dKY - 2 * E) );
+
+        std::cout<< prefactors;
 
         // Sequentially update the cube file
         Array<types::Real,2> tempDirect(nX, nY);
@@ -409,13 +414,14 @@ void WfnExtrapolation::execute(){
         std::cout << "Matrix dimension is " << n << "x" << nK 
                   << ", i.e. " << Real(nLayers*n*nK*8)  / (1024.0 * 1024.0) << " MBytes per matrix\n";
        
-        // Test: Extrapolation on plane
-        for(int i = 0; i < zIndices.size();++i){
-            zIndices[i] = 128;
-        }
-        this->zSurfEndIndex = 128;
-        this->zStartIndex = 128;
-        
+//        // Test: Extrapolation on plane
+//        for(int i = 0; i < zIndices.size();++i){
+//            zIndices[i] = 128;
+//        }
+//        this->zSurfEndIndex = 128;
+//        this->zStartIndex = 128;
+//        E = -0.160023 * dZ * dZ;
+
         std::vector<Real> A(n*nK*nLayers);
         int iX, iY, jX, jY;
         Real kX, kY, kZ;
@@ -545,8 +551,8 @@ void WfnExtrapolation::execute(){
                 jT = (int(nY) - j) % nY;
 
                 fourier[i*nYF+j] = 
-                    1/2.0 * (               hartley[i*nY+j] + hartley[iT*nY+jT] +
-                           Complex(0,1.0)*( hartley[i*nY+j] - hartley[iT*nY+jT]) );
+                    1/2.0 * (               hartley[i*nY+j] + hartley[iT*nY+jT]  
+                         - Complex(0,1.0)*( hartley[i*nY+j] - hartley[iT*nY+jT]) );
             }
         }
 
@@ -579,11 +585,14 @@ void WfnExtrapolation::execute(){
                 &pref[0],
                 shape(nXF, nYF),
                 neverDeleteData);
+        std::cout<< prefactors;
 
         Array<types::Complex,2> planeFourier(
                 &fourier[0],
                 shape(nXF, nYF),
                 neverDeleteData);
+        std::cout << planeFourier;
+
         Array<types::Complex,2> tempFourier(nXF, nYF);
         Array<types::Real,2> tempDirect(nX, nY);
         fftw_plan plan_backward;
@@ -607,8 +616,8 @@ void WfnExtrapolation::execute(){
             //tempDirect /= nX*nY / (nKX*nKY);
 
             // Copy data
-            //if (zIndex > zSurfEndIndex) dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
-            if (false){}
+            if (zIndex > zSurfEndIndex) dataArray(Range::all(), Range::all(), zIndex) = tempDirect(Range::all(), Range::all());
+            //if (false){}
             else {
                 for(int x = 0; x < nX; ++x){
                     for(int y = 0; y < nY; ++y){
