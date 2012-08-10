@@ -100,25 +100,26 @@ class StsCube : public formats::Cube {
 class WfnExtrapolation {
 public:
     enum Mode { constantZ = 0, isoSurface = 1 };
+    void onPlane(WfnCube& wfn);
+    void onSurface(WfnCube& wfn, types::Uint nKX, types::Uint nKY);
     void execute();
-    void writeWfnCube() const;
-    void writeWfnCube(types::String fileName) const;
     void determineRange();
-    void adjustEnergy();
+    void setSurfacePotential();
     WfnExtrapolation(){};
-    WfnExtrapolation(types::String fileName,
+    WfnExtrapolation(std::vector<types::String> fileNames,
                      const cp2k::Spectrum &spectrum,
-                     const Cube&   hartree ,
+                     Cube&   hartree,
                      Mode          mode    ,
                      types::Real   var1    ,
                      types::Real   isoLevel,
                      types::Real   approachFrom,
-                     types::Real   decayCutoff,
+                     types::Real   kPlaneMax,
                      types::Uint   nLayers
                      );
 private:
-    WfnCube            wfn;
-    const Cube*        hartree;
+    std::vector<WfnCube> wfns;
+    cp2k::Spectrum     spectrum;
+    Cube               hartree;
     Mode               mode;
     types::Real        zStart;
     types::Uint        zStartIndex;
@@ -127,10 +128,11 @@ private:
     types::Uint        zSurfEndIndex;
     types::Real        isoValue;
     types::Real        approachFrom;
-    types::Real        decayCutoff;
+    types::Real        kPlaneMax;
     types::Uint        nLayers;
     std::vector<types::Real> surface;
     std::vector<types::Uint> zIndices;
+    types::Real         surfacePotential;
 
 
 

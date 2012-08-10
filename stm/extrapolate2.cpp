@@ -33,7 +33,7 @@ bool prepare(types::String levelFileName,
              double width,
              double isoValue,
              double approachFrom,
-             double decayCutoff,
+             double kPlaneMax,
              types::Uint nLayers
              );
 
@@ -49,7 +49,7 @@ int main(int ac, char* av[]) {
                 args["width"].as< double >(),
                 args["isovalue"].as< double >(),
                 args["approach-from"].as< double >(),
-                args["decay-cutoff"].as< double >(),
+                args["k-cutoff"].as< double >(),
                 args["nlayers"].as< types::Uint >()
                );
 
@@ -66,7 +66,7 @@ bool prepare(types::String levelFileName,
              double width,
              double isoValue,
              double approachFrom,
-             double decayCutoff,
+             double kPlaneMax,
              types::Uint nLayers
             ){
 
@@ -108,22 +108,19 @@ bool prepare(types::String levelFileName,
                                     : stm::WfnExtrapolation::isoSurface;
     types::Real var1 = ( m == stm::WfnExtrapolation::constantZ ) 
                        ? start : isoValue;
-    for(std::vector<types::String>::const_iterator it = cubeList.begin();
-            it != cubeList.end(); ++it) {
-        stm::WfnExtrapolation extrapolation = stm::WfnExtrapolation(
-                *it,
-                spectrum,
-                hartree,
-                m,
-                var1,
-                width,
-                approachFrom,
-                decayCutoff,
-                nLayers
-                );
-        extrapolation.execute();
-        extrapolation.writeWfnCube();
-    }
+
+    stm::WfnExtrapolation extrapolation = stm::WfnExtrapolation(
+            cubeList,
+            spectrum,
+            hartree,
+            m,
+            var1,
+            width,
+            approachFrom,
+            kPlaneMax,
+            nLayers
+            );
+    extrapolation.execute();
 
     return true;
 }
@@ -147,7 +144,8 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     ("width", po::value<double>()->default_value(15), "length of extrapolation in a.u.")
     ("isovalue", po::value<double>()->default_value(1e-4), "mode 'isosurface': isovalue of wavefunction [a.u.] ")
     ("approach-from", po::value<double>()->default_value(-1.0), "mode 'isosurface': z [a.u.] from where you want to go down to find the isosurface (default: top z of cube file).")
-    ("decay-cutoff", po::value<double>()->default_value(2.0), "Maximum decay constant k [1/a.u.] to be retained for z decay  10^(-k*z).")
+//  ("decay-cutoff", po::value<double>()->default_value(2.0), "Maximum decay constant k [1/a.u.] to be retained for z decay  10^(-k*z).")
+    ("k-cutoff", po::value<double>()->default_value(1.0), "Restrict basis functions to maximum wave number k = 1/lambda [1/a.u.] in xy-plane.")
     ("nlayers", po::value<types::Uint>()->default_value(1), "Number of layers to fit the wave function values.")
     ;
 
@@ -187,8 +185,8 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     } else if ( vm["mode"].as< types::String >() == "isosurface" &&
                !(vm.count("isovalue") && vm.count("width"))) {
                 std::cout << "Error: Need to specify 'isovalue' and 'width' for mode='isosurface'.\n";
-    } else if ( vm["decay-cutoff"].as< types::Real >() < 0 ){
-                std::cout << "Error: Decay constant must be non-negative.\n";
+    } else if ( vm["k-cutoff"].as< types::Real >() < 0 ){
+                std::cout << "Error: K-cutoff must be non-negative.\n";
     } else {
         return true;
     }

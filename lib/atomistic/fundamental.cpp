@@ -19,6 +19,10 @@ typedef const boost::regex Regex;
 using boost::lexical_cast;
 using namespace types;
 
+EnergyLevels::EnergyLevels(const EnergyLevels& e){
+    this->levels = e.levels;
+    this->fermi = e.fermi;
+}
 
 EnergyLevels::EnergyLevels(std::vector<types::Real> levels, types::Real fermi){
     this->levels = levels;

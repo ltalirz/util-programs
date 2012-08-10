@@ -17,6 +17,10 @@ typedef const boost::regex Regex;
 using boost::lexical_cast;
 using namespace types;
 
+Spectrum::Spectrum(const Spectrum& s){
+    this->spins = s.spins;
+}
+
 Spectrum & Spectrum::operator*=(Real factor){
     for(std::vector<atomistic::EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {
         *it *= factor;
@@ -25,6 +29,12 @@ Spectrum & Spectrum::operator*=(Real factor){
     return *this;
 }
 
+void Spectrum::sort(){
+    for(std::vector<atomistic::EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {
+        it->sort();
+    }
+
+}
 
 void Spectrum::shift(Real deltaE) {
     for(std::vector<atomistic::EnergyLevels>::iterator it = this->spins.begin(); it != this->spins.end(); it++) {

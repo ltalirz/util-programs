@@ -42,6 +42,9 @@ struct CubeGrid : public la::Grid<3> {
     types::Uint nX() const  { return directions[0].getNElements(); }
     types::Uint nY() const  { return directions[1].getNElements(); }
     types::Uint nZ() const  { return directions[2].getNElements(); }
+    types::Real dX() const  { return directions[0].getIncrementVector()[0]; }
+    types::Real dY() const  { return directions[1].getIncrementVector()[1]; }
+    types::Real dZ() const  { return directions[2].getIncrementVector()[2]; }
 
     using la::Grid<3>::getNearestDataPoint;
     types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;
@@ -114,6 +117,9 @@ struct Cube {
     types::Uint nX() const  { return grid.nX(); }
     types::Uint nY() const  { return grid.nY(); }
     types::Uint nZ() const  { return grid.nZ(); }
+    types::Real dX() const  { return grid.dX(); }
+    types::Real dY() const  { return grid.dY(); }
+    types::Real dZ() const  { return grid.dZ(); }
 };
 
 /**
@@ -125,8 +131,8 @@ struct WfnCube : public Cube {
     types::Uint wfn;        /**< as read from CP2K cube file */
     types::Real energy;     /**< [a.u.], read from CP2K output */
    
+	bool readCubeFile();
     bool readCubeFile(types::String filename);
-    bool readCubeFile();
     bool readDescription(types::String filename);
 
     void setEnergy(types::Real e){ energy = e; }

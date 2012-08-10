@@ -28,6 +28,7 @@ class EnergyLevels {
 
 public:
     EnergyLevels(std::vector<types::Real> levels, types::Real fermi);
+    EnergyLevels(const EnergyLevels& e);
     EnergyLevels() {};
     void join(EnergyLevels e2);
     

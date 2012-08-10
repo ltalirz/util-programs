@@ -21,10 +21,13 @@ struct Spectrum {
     Spectrum & operator*=(types::Real factor);
     bool readFromCp2k(types::String filename);
     void print() const;
+    void sort();
     void shift(types::Real deltaE);
     void setFermiZero();
     atomistic::EnergyLevels sumSpins() const;
     types::Real getLevel(types::Uint nSpin, types::Uint nLevel) const;
+    Spectrum(const Spectrum& s); 
+    Spectrum() {};
 };
 
 

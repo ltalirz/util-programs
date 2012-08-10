@@ -322,11 +322,10 @@ bool WfnCube::readDescription(String filename) {
     return true;
 }
 
-
-bool WfnCube::readCubeFile(){
-    return Cube::readCubeFile();
+bool WfnCube::readCubeFile() {
+    if(! this->fileName.empty() ) return this->readCubeFile(this->fileName);
+    else throw types::runtimeError() << types::errinfo_runtime("Cannot read cube file - no file name given.");
 }
-
 
 bool WfnCube::readCubeFile(String filename) {
     Cube::readCubeFile(filename);
