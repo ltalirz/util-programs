@@ -30,6 +30,12 @@
   In sumbias I should also admix states (with an erf prefactor or similar) that 
   are outside the bias window.
 
+- extrapolate: 
+  - Add option for setting rcond
+  - Add option for setting print-level
+  - Find a good way to determine a nice hartree potential isosurface for extrapolation.
+
+- cubeplane: make positional options work
 
 ##########
 #  DONE  #

@@ -147,8 +147,8 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     ("width", po::value<double>()->default_value(15), "length of extrapolation in a.u.")
     ("isovalue", po::value<double>()->default_value(1e-4), "mode 'isosurface': isovalue of wavefunction [a.u.] ")
     ("approach-from", po::value<double>()->default_value(-1.0), "mode 'isosurface': z [a.u.] from where you want to go down to find the isosurface (default: top z of cube file).")
-    ("decay-cutoff", po::value<double>()->default_value(100.0), "Maximum decay constant k [1/a.u.] to be retained for z decay  10^(-k*z).")
-    ("nlayers", po::value<types::Uint>()->default_value(2), "Number of layers to fit the wave function.")
+    ("decay-cutoff", po::value<double>()->default_value(2.0), "Maximum decay constant k [1/a.u.] to be retained for z decay  10^(-k*z).")
+    ("nlayers", po::value<types::Uint>()->default_value(1), "Number of layers to fit the wave function values.")
     ;
 
     // Register positional options
