@@ -706,19 +706,19 @@ void WfnExtrapolation::adjustEnergy(){
             shape(hartree->nX(), hartree->nY()),
             neverDeleteData);
     Real surfacePotential = mean(hartreeSurface);
-    Array<Real, 2> hartreeeGrid (
-            &(hptr->grid[0]),
-            shape(hartree->nX(), hartree->nY(), hartree-nZ()),
+    Array<Real, 3> hartreeGrid (
+            &(hptr->grid.data[0]),
+            shape(hartree->nX(), hartree->nY(), hartree->nZ()),
             neverDeleteData);
-    Real vacuumPotential = min(hartreeGrid);
+    Real vacuumPotential = max(hartreeGrid);
 
     std::cout << "Hartree potential on extrapolation surface is " 
               << surfacePotential << " Ha\n";
-    std::cout << "This is " << vacuumPotential - surfacePotential << 
+    std::cout << "This is " << vacuumPotential - surfacePotential 
               << " Ha below the maximum Hartree potential.\n";
 
  
-    wfn.setEnergy( wfn.getEnergy()- vacuumPotential);
+    wfn.setEnergy( wfn.getEnergy()- surfacePotential);
     std::cout << "Energy level " << wfn.getEnergy() << " Ha\n";
 
 
