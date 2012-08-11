@@ -13,8 +13,9 @@ CFLAGS += -I ./$(INCDIR)
 BASIC      = io la
 ATOMISTIC  = $(addprefix atomistic/, fundamental)
 FORMATS    = $(addprefix formats/, cp cp2k cube espresso xyz gnuplot stm)
+WRAPPERS   = $(addprefix wrappers/, lapack)
 
-COMPONENTS = $(BASIC) $(ATOMISTIC) $(FORMATS)
+COMPONENTS = $(BASIC) $(ATOMISTIC) $(FORMATS) $(WRAPPERS)
 INCDEP     = $(addprefix $(INCDIR)/, $(addsuffix .hpp, $(COMPONENTS)))
 LIBDEP     = $(addprefix $(LIBDIR)/, $(addsuffix .o, $(COMPONENTS)))
 
@@ -29,7 +30,7 @@ TEST       = fftw fftw-2 stl blitz inherit karma progress po core lapack
 TESTTARGETS   = $(addprefix test/, $(TEST))
 # These targets may depend on my library
 TESTLIB    = regex qi qi-stack qi-cptime read write la readcp types p stm readesp
-TESTLIB   += lap
+TESTLIB   += lap wrap
 TESTLIBTARGETS   = $(addprefix test/, $(TESTLIB))
 TESTMPI    = mpi
 TESTMPITARGETS   = $(addprefix test/, $(TESTLIB))

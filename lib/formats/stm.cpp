@@ -22,6 +22,7 @@ namespace formats {
 namespace stm {
 
 using namespace types;
+using namespace wrappers::lapack;
 
 bool StsCube::initialize(){
     if(levels.size() == 0){
