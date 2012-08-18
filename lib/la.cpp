@@ -15,11 +15,6 @@ namespace la {
 
 using namespace types;
 
-/**
- * Required template specializations
- */
-
-template class Grid<3>;
 
 /**
  * Implementation
@@ -517,6 +512,13 @@ types::Real Grid<dim>::sum() const{
     }
     return sum;
 }
+
+/**
+ * Required template specializations
+ * (need to be given *after* implementation)
+ */
+
+template class Grid<3>;
 
 }
 
