@@ -1,12 +1,19 @@
-
 CC = g++ -g
 LD = g++ -g
 
-CFLAGS =  -O1 -I /usr/include
+MKLROOT = /opt/intel/mkl
+
+CFLAGS =  -O1 -I /usr/include  -I $(MKLROOT)/include
+
 
 # The boost library you get via Ubuntu Software Manager uses pthread
 LFLAGS   = -static -pthread
 LFLAGS  += -L /usr/lib
 LFLAGS  += -lboost_program_options -lboost_regex -lboost_filesystem -lboost_system
-LFLAGS  += -lfftw3 -lm -lblitz -llapack -lblas
+LFLAGS  += -lfftw3 -lm -lblitz
+
+# Sequantial MKL, see http://software.intel.com/en-us/articles/intel-mkl-link-line-advisor/
+LFLAGS += -Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a
+LFLAGS += $(MKLROOT)/lib/intel64/libmkl_sequential.a
+LFLAGS += $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm
 
