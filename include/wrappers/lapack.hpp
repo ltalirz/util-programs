@@ -21,7 +21,8 @@ extern "C" void zgetrf_( int*, int* , complex<double>* , int*, int* , int* );
 extern "C" void zgetri_( int*, complex<double>* , int*, int* , complex<double>*, int* , int* );
 #endif
 
-// Calculates the pseudoinverse of M x N matrix A
+// Calculates the pseudoinverse of M x N matrix A, 
+// throwing away singular values smaller than RCOND * max(sv)
 int dge_pseudo(std::vector<double> &A, int M, int N, double RCOND);
 
 }

@@ -4,6 +4,7 @@
 namespace wrappers {
 namespace lapack {
 
+
 int dge_pseudo(std::vector<double> &A, int M, int N, double RCOND){
     
     char JOBU;
@@ -18,7 +19,7 @@ int dge_pseudo(std::vector<double> &A, int M, int N, double RCOND){
     int  LWORK  = -1;
     int  INFO   = 0;
     
-    if (M > N){
+    if (M >= N){
         JOBU = 'O';
         JOBVT = 'A';
         VT = std::vector<double>(N*N);
@@ -54,11 +55,9 @@ int dge_pseudo(std::vector<double> &A, int M, int N, double RCOND){
             &*WORK.begin(), &LWORK,
             &INFO);
 
-    std::cout << "Performed SVD\n";
-    
     if (INFO != 0) return INFO;
-    // A+ = V * S+ * UT
 
+    // A+ = V * S+ * UT
     // First calculate S+, setting small singular values to zero
     std::vector<double>::iterator it = S.begin(), end = S.end();
     double SMAX = *it;
@@ -74,17 +73,14 @@ int dge_pseudo(std::vector<double> &A, int M, int N, double RCOND){
         ++it;
     }
     
-    std::cout << NS << "Inverted Sigma\n";
+    // Now multiply S+ to the smaller matrix and then
+    // the result to the larger matrix.
 
-    // Then multiply S+ to the smaller matrix
-    // Since diagonal * general matrix is not a BLAS,
-    // we implement it ourselves.
     std::vector<double> C(N*M);
-
-    if (M > N){
-        // Need V * S+
-        // Since VT is column-major, we are automatically
-        // transposing it.
+    if (M >= N){
+        // Need V * S+ (general * diagonal), which is not a BLAS.
+        // Since VT is column-major, we can omit transposition
+        // and just think the C++ way.
         for(int i = 0; i < NS; ++i)
             for(int j = 0; j < N; ++j)
                 VT[j * N + i] *= S[i];
@@ -93,7 +89,9 @@ int dge_pseudo(std::vector<double> &A, int M, int N, double RCOND){
         // NS columns are nonzero (and N columns stored)
 
         // A+ = V * S+ * UT
-        char TRANSA = 'N';
+        // A stores the first N columns of U, 
+        // i.e. AT has the first N rows of UT
+        char TRANSA = 'T';
         char TRANSB = 'T';
         int K  = NS;
         double ALPHA = 1.0;
@@ -103,39 +101,42 @@ int dge_pseudo(std::vector<double> &A, int M, int N, double RCOND){
         int LDC = N;
 
         dgemm(&TRANSA, &TRANSB,
-                &M,&N,&K,&ALPHA,
+                &N,&M,&K,&ALPHA,
                 &*VT.begin(),&LDA,
-                &*U.begin(),&LDB,
+                &*A.begin(),&LDB,
                 &BETA,&*C.begin(),&LDC);
     }
     else{
-        // Need S+ * UT
-        // Since UT is column-major, we are automatically
-        // transposing it by thinking the C++ way.
+        // Need S+ * UT (diagonal * general), which is not a BLAS.
+        // Since U is column-major, we can omit transposition
+        // and just think the C++ way.
         for(int i = 0; i < NS; ++i)
-            for(int j = 0; j < N; ++j)
-                U[j * N + i] *= S[i];
+            for(int j = 0; j < M; ++j)
+                U[i*M + j] *= S[i];
 
         // The result is nominally a NxM matrix, but actually only
         // NS rows are nonzero (and N rows stored)
 
         // A+ = V * S+ * UT
+        // A stores the first M columns of VT
+        // i.e. AT has the first M rows of V
         char TRANSA = 'T';
-        char TRANSB = 'N';
+        char TRANSB = 'T';
         int K  = NS;
         double ALPHA = 1.0;
-        int LDA = N;
-        int LDB = N;
+        int LDA = M;  // Note: In column-major the leading dimension is the
+        int LDB = M;  //       number of rows. Need ld *before* transposition.
         double BETA = 0.0;
         int LDC = N;
 
         dgemm(&TRANSA, &TRANSB,
-                &M,&N,&K,&ALPHA,
-                &*U.begin(),&LDA,
-                &*VT.begin(),&LDB,
+                &N,&M,&K,&ALPHA,
+                &*A.begin(),&LDA,
+                &*U.begin(),&LDB,
                 &BETA,&*C.begin(),&LDC);
+        
     }
-
+    
     // Overwrite A with its pseudoinverse
     A = C;
     
