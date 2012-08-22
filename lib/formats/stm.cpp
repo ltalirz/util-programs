@@ -294,7 +294,6 @@ void WfnExtrapolation::execute(){
 
     }
     
-    
     for(std::vector<WfnCube>::iterator wfn = wfns.begin();
             wfn != wfns.end(); ++wfn){
 
@@ -472,8 +471,6 @@ void WfnExtrapolation::onPlane(WfnCube& wfn){
             shape(nX, nY, nZ),
             neverDeleteData);
 
-
-
     // Do a real 2 complex fft
     // Since a(-k)=a(k)^* (or in terms of indices: a[n-k]=a[k]^*)
     // only a[k], k=0...n/2+1 (division rounded down) are retained
@@ -570,10 +567,10 @@ void WfnExtrapolation::onSurface(WfnCube& wfn, Uint nKX, Uint nKY){
 
     int nK = nKX * nKY;
    
-    // In order to be able to calculate the inverted matrix
-    // only once, we do not reduce the dimension depending on
-    // the wave function energy, but use a criterion based on
-    // wave number. 
+    // Instead of a wave-number based criterion that is the
+    // same for all wave functions, we may also choose some adaptive
+    // criterion such as the one below (upper limit for z-decay of
+    // involved basis functions.
 //    // May choose to reduce k-grid 
 //    Real kXMax = nKX/2.0 * dKX;
 //    Real kYMax = nKY/2.0 * dKY;
@@ -667,7 +664,7 @@ void WfnExtrapolation::onSurface(WfnCube& wfn, Uint nKX, Uint nKY){
     int  INFO_  = 0;
     // Writes correct WORK dimensions to WORK[0], IWORK[0]
     // SUBROUTINE DGELSD( M, N, NRHS, A, LDA, B, LDB, S, RCOND, RANK,
-    //              $                   WORK, LWORK, IWORK, INFO )
+    //                   WORK, LWORK, IWORK, INFO )
     dgelsd_(&M_, &N_, &NRHS_, 
             &*A.begin(), &M_, 
             &*hartley.begin(), &M_, 
@@ -720,7 +717,7 @@ void WfnExtrapolation::onSurface(WfnCube& wfn, Uint nKX, Uint nKY){
         }
     }
 
-    //        // Plotting the coefficients2 of the hartley transform
+    //        // Plotting the coefficients of the reformed hartley transform
     //        s = formats::gnuplot::writeMatrix<Real>(hartley, nX, nY);
     //        hartleyFile = io::getFileName(wfn->getFileName()) + ".hartley2";
     //        io::writeStream(hartleyFile, s);
@@ -740,13 +737,14 @@ void WfnExtrapolation::onSurface(WfnCube& wfn, Uint nKX, Uint nKY){
         }
     }
 
-    //        std::vector<Real> fourierReal(fourier.size());
-    //        for(int i =0;i<fourierReal.size();++i)
-    //            fourierReal[i] = abs(fourier[i]);
-    //        // Plotting the coefficients2 of the hartley transform
-    //        s = formats::gnuplot::writeMatrix<Real>(fourierReal, nXF, nYF);
-    //        hartleyFile = io::getFileName(wfn->getFileName()) + ".fourier";
-    //        io::writeStream(hartleyFile, s);
+    
+    // Plotting the coefficients of the Fourier transform
+    std::vector<Real> fourierReal(fourier.size());
+    for(int i =0;i<fourierReal.size();++i)
+        fourierReal[i] = abs(fourier[i]);
+    String s = formats::gnuplot::writeMatrix<Real>(fourierReal, nXF, nYF);
+    String fileName = io::getFileName(wfn.getFileName()) + ".fourier";
+    io::writeStream(fileName, s);
 
 
     // Calculating the exponential prefactors to propagate coefficients to
@@ -783,7 +781,7 @@ void WfnExtrapolation::onSurface(WfnCube& wfn, Uint nKX, Uint nKY){
         // Propagate hartley coefficients (could use matmul here)
         planeFourier = prefactors(tensor::i, tensor::j) * planeFourier(tensor::i, tensor::j);
 
-        // The c2r transform destroys its input (also the hartley?? ->check)
+        // The c2r transform destroys its input
         tempFourier = planeFourier;
         plan_backward = fftw_plan_dft_c2r_2d(
                 nX, nY, 
@@ -793,9 +791,6 @@ void WfnExtrapolation::onSurface(WfnCube& wfn, Uint nKX, Uint nKY){
 
         // Perform Fourier transform backwards
         fftw_execute(plan_backward);
-
-        //std::vector<Real> tmp; tmp.assign(tempDirect.begin(), tempDirect.end());
-        //tempDirect /= nX*nY / (nKX*nKY);
 
         // Copy data
         if (zIndex > zSurfEndIndex) 

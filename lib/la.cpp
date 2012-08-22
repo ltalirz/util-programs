@@ -470,6 +470,25 @@ const Grid<dim> & Grid<dim>::operator*=(types::Real x) {
 }
 
 template<unsigned int dim>
+Real operator*(const Grid<dim>& g1, const Grid<dim>& g2) {
+    if(! g1.hasSameGrid(g2)) throw types::runtimeError() <<
+            types::errinfo_runtime("Cannot multiply data on different grids.");
+
+    std::vector<Real>::const_iterator 
+        it1 = g1.data.begin(), end1= g1.data.end(),
+        it2 = g2.data.begin(), end2= g2.data.end();
+    
+    Real sum = 0;
+    while(it1 != end1) {
+        sum += *it1 * *it2;
+        ++it1; ++it2;
+    }
+    return sum;
+}
+
+
+
+template<unsigned int dim>
 Uint Grid<dim>::countPoints() const {
     std::vector<Direction>::const_iterator it;
     Uint points = 1;
@@ -519,6 +538,7 @@ types::Real Grid<dim>::sum() const{
  */
 
 template class Grid<3>;
+template Real operator*(const Grid<3>& g1, const Grid<3>& g2);
 
 }
 

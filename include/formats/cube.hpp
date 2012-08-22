@@ -45,6 +45,7 @@ struct CubeGrid : public la::Grid<3> {
     types::Real dX() const  { return directions[0].getIncrementVector()[0]; }
     types::Real dY() const  { return directions[1].getIncrementVector()[1]; }
     types::Real dZ() const  { return directions[2].getIncrementVector()[2]; }
+    types::Real volumeElement() const;
 
     using la::Grid<3>::getNearestDataPoint;
     types::Real getNearestDataPoint(types::Real x, types::Real y, types::Real z) const;

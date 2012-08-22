@@ -26,7 +26,7 @@ bool parse(int ac, char* av[], po::variables_map& vm);
 
 // Prepares extrapolation
 bool prepare(types::String levelFileName,
-             types::String cubeListFileName,
+             std::vector<types::String> wfnCubes,
              types::String hartreeFileName,
              types::String mode,
              double start,
@@ -42,7 +42,7 @@ int main(int ac, char* av[]) {
     po::variables_map args;
     if (parse(ac, av, args)) {
         prepare(args["levels"].as< types::String >(),
-                args["cubelist"].as< types::String >(),
+                args["wfncubes"].as< std::vector<types::String> >(),
                 args["hartree"].as< types::String >(),
                 args["mode"].as< types::String >(),
                 args["start"].as< double >(),
@@ -59,7 +59,7 @@ int main(int ac, char* av[]) {
 }
 
 bool prepare(types::String levelFileName,
-             types::String cubeListFileName,
+             std::vector<types::String> wfnCubes,
              types::String hartreeFileName,
              types::String mode,
              double start,
@@ -85,20 +85,6 @@ bool prepare(types::String levelFileName,
         << hartreeZProfile << std::endl;
     hartree.writeZProfile(hartreeZProfile);
     
-    // Read file with list of cubes
-    std::ifstream cubeListFile;
-    cubeListFile.open(cubeListFileName.c_str());
-    if (!cubeListFile.is_open() )
-            throw types::fileAccessError() 
-                << boost::errinfo_file_name(cubeListFileName);
-    
-    std::vector<types::String> cubeList;
-    types::String fileName;
-    while (getline(cubeListFile, fileName)) {
-        cubeList.push_back(fileName);
-    }
-    cubeListFile.close();
-
     std::cout << "Time to prepare : " << (clock() -t)/1000.0 << " ms\n";
     t = clock();
     
@@ -110,7 +96,7 @@ bool prepare(types::String levelFileName,
                        ? start : isoValue;
 
     stm::WfnExtrapolation extrapolation = stm::WfnExtrapolation(
-            cubeList,
+            wfnCubes,
             spectrum,
             hartree,
             m,
@@ -137,21 +123,21 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     ("version,v", "print version information")
     ("input-file,i", po::value<types::String>(&input_file), "Input file specifying all or several of the following options")
     ("levels", po::value<types::String>(), "CP2K output file containing energy levels")
-    ("cubelist", po::value<types::String>(), "file with list of wavefunction cubes you wish to extrapolate")
+    ("wfncubes", po::value< std::vector<types::String> >(), "List of wavefunction cubes you wish to extrapolate")
     ("hartree", po::value<types::String>(), "cube file of hartree potential from CP2K")
     ("mode", po::value<types::String>()->default_value("constant-z"), "may be 'constant-z' or 'isosurface'")
     ("start", po::value<double>()->default_value(5), "mode 'constant-z': distance between extrapolation plane and outermost atom in a.u.")
     ("width", po::value<double>()->default_value(15), "length of extrapolation in a.u.")
-    ("isovalue", po::value<double>()->default_value(1e-4), "mode 'isosurface': isovalue of wavefunction [a.u.] ")
+    ("isovalue", po::value<double>()->default_value(0.0), "mode 'isosurface': isovalue of the Hartree potential [a.u.] ")
     ("approach-from", po::value<double>()->default_value(-1.0), "mode 'isosurface': z [a.u.] from where you want to go down to find the isosurface (default: top z of cube file).")
 //  ("decay-cutoff", po::value<double>()->default_value(2.0), "Maximum decay constant k [1/a.u.] to be retained for z decay  10^(-k*z).")
-    ("k-cutoff", po::value<double>()->default_value(1.0), "Restrict basis functions to maximum wave number k = 1/lambda [1/a.u.] in xy-plane.")
+    ("k-cutoff", po::value<double>()->default_value(3.0), "Restrict basis functions to maximum wave number k = 1/lambda [1/a.u.] in xy-plane.")
     ("nlayers", po::value<types::Uint>()->default_value(1), "Number of layers to fit the wave function values.")
     ;
 
     // Register positional options
     po::positional_options_description p;
-    p	.add("input-file", -1);
+    p	.add("input-file", 1) .add("wfncubes", -1);
 
     // Parse
     po::store(po::command_line_parser(ac,av).

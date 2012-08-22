@@ -72,7 +72,7 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
 
     // Register positional options
     po::positional_options_description p;
-    p.add("cubefile", 1).add("dir", 2).add("index", 3);
+    p.add("cubefile", 1).add("dir", 1).add("index", 1);
 
     // Parse
     po::store(po::command_line_parser(ac,av).

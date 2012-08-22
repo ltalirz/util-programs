@@ -457,6 +457,12 @@ void CubeGrid::zSurface(std::vector<Uint> zIndices, std::vector<Real> &plane) {
     }
 
 }
+
+Real CubeGrid::volumeElement() const{
+    return dX() * dY() * dZ();
+}
+
+
 /**
  * Fill vector reduced with the sum over XY
  */

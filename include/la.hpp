@@ -110,6 +110,8 @@ private:
         const std::vector<types::Uint> &rests);
 };
 
+template<unsigned int dim>
+types::Real  operator*(const Grid<dim>& g1, const Grid<dim>& g2);
 
 
 }

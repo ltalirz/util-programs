@@ -22,7 +22,7 @@ LIBDEP     = $(addprefix $(LIBDIR)/, $(addsuffix .o, $(COMPONENTS)))
 ##### Programs
 STMPROGS   = extrapolate sumbias sts stm extrapolate2
 UTILPROGS  = cubestride cubescale cubesquare cuberoot cubeabs cubezprofile
-UTILPROGS += cubediravg espressowfn cubeplane
+UTILPROGS += cubediravg espressowfn cubeplane cubeprod
 
 
 # Test targets are made like: make test/regex
