@@ -434,7 +434,7 @@ void CubeGrid::plane(Uint dirIndex, Uint index, std::vector<Real> &plane){
     } else if(dirIndex == 2) {
     Array<types::Real,2> blitzPlane =
         dataArray(Range::all(), Range::all(), index);
-        blitzPlane = blitzPlane(t::j, t::i);
+        //blitzPlane = blitzPlane(t::j, t::i);
         plane.assign(blitzPlane.begin(), blitzPlane.end());
     } else {
         throw types::runtimeError() << types::errinfo_runtime("Direction index out of bounds.");

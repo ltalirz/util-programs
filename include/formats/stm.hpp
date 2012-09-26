@@ -20,10 +20,12 @@ class StsCube;
  * List of WfnCubes and bias
  */
 class StmCube : public formats::Cube {
+    public : enum Mode { CONSTANT_CURRENT = 0, CONSTANT_HEIGHT = 1 };
     private:
         std::vector<WfnCube> levels;
         types::Real bias;
-        types::Real isoLevel;
+        types::Real setValue;
+        Mode mode;
         std::vector<types::Real> stm;
 
     public:
@@ -31,7 +33,8 @@ class StmCube : public formats::Cube {
         StmCube() {};
 //        bool findCubes(std::vector<WfnCube> &list);
         types::Real getBias() { return bias; }
-        void setIsoLevel(types::Real isoValue); 
+        void setIsoValue(types::Real isoValue); 
+        void setZValue(types::Real zValue); 
         bool writeIgorFile(types::String fileName) const;
         bool readIgorFile(types::String fileName);
         std::vector<types::Real> getZProfile() const { return stm; }

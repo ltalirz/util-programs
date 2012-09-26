@@ -31,31 +31,52 @@ bool parse(int ac, char* av[], po::variables_map& vm);
 // and calls sum
 bool doStm(
         types::String cubeListFileName,
-        std::vector<Real> isoValues,
-        bool psisquared
+        bool psisquared,
+        std::vector<Real> values,
+        stm::StmCube::Mode m
         );
 
 /***********************************************
   Implementations
 ***********************************************/
 
+const int CONSTANT_CURRENT = 0;
+const int CONSTANT_HEIGHT =  1;
+
+
 int main(int ac, char* av[]) {
 
     po::variables_map args;
     if (parse(ac, av, args)) {
-        doStm(
+        std::vector<Real> v;
+        stm::StmCube::Mode m;
+    
+        // Iterate over cubes
+        if(args.count("isovalues")){
+                v = args["isovalues"].as< std::vector<Real> >();
+                m = stm::StmCube::CONSTANT_CURRENT;
+         }
+         else{
+                v = args["zvalues"].as< std::vector<Real> >();
+                m = stm::StmCube::CONSTANT_HEIGHT;
+         }
+         doStm(
                 args["cubelist"].as< types::String >(),
-                args["isovalues"].as< std::vector<Real> >(),
-                args["psisquared"].as< bool >()
-           );
+                args["psisquared"].as< bool >(),
+                v,
+                m
+              );
     }
 
     return 0;
 }
 
 
-bool doStm(types::String cubeListFileName, std::vector<Real> isoValues,
-        bool psisquared){
+bool doStm(types::String cubeListFileName, 
+           bool psisquared,
+           std::vector<Real> values,
+           stm::StmCube::Mode m
+           ){
     using namespace types;
 
     // Read cube files
@@ -72,12 +93,20 @@ bool doStm(types::String cubeListFileName, std::vector<Real> isoValues,
         std::cout << "Reading cube file " << fileName << "\n";
         temp.readCubeFile(fileName);
 
-        std::vector<Real>::const_iterator isoIt = isoValues.begin(),
-            isoEnd = isoValues.end();
+        std::vector<Real>::const_iterator isoIt = values.begin(),
+            isoEnd = values.end();
         while(isoIt != isoEnd){
-            temp.setIsoLevel(*isoIt);
-            types::String igorFileName = io::getFileName(fileName);
-            igorFileName += str(boost::format(".%2.1e.igor") % *isoIt);
+            types::String igorFileName;
+            if (m == stm::StmCube::CONSTANT_CURRENT){
+                temp.setIsoValue(*isoIt);
+                igorFileName = io::getFileName(fileName);
+                igorFileName += str(boost::format(".%2.1e.igor") % *isoIt);
+            }
+            else{
+                temp.setZValue(*isoIt);
+                igorFileName = io::getFileName(fileName);
+                igorFileName += str(boost::format(".%1.2d.igor") % *isoIt);
+            }
             std::cout << "Writing " << igorFileName << "\n";
             temp.writeIgorFile(igorFileName);
             ++isoIt;
@@ -101,7 +130,8 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     ("version,v", "print version information")
     ("input-file,i", po::value<types::String>(&input_file), "Input file specifying all or several of the following options")
     ("cubelist", po::value<types::String>(), "file with list of extrapolated wave function cubes from CP2K")
-    ("isovalues", po::value< std::vector<Real> >()->multitoken(), "The isovalues for the STM image. 1E-7 is typically a good start.")
+    ("isovalues", po::value< std::vector<Real> >()->multitoken(), "The isovalues defining the density isosurface of an STM image in constantr-current mode. 1E-7 is typically a good start.")
+    ("zvalues", po::value< std::vector<Real> >()->multitoken(), "The height above the topmost atoms for an STM image in constant-height mode. 8 a.u. is typically reasonable.")
     ("psisquared", po::value<bool>()->default_value(false), "Whether the cube files contain the square of the wave function (and not the wave function itself)")
     ;
 
@@ -124,13 +154,13 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
 
     // Check if all necessary things are specified
     if (	vm.count("help") ||
-            !vm.count("cubelist") ||
-            !vm.count("isovalues")
+            !vm.count("isovalues") && !vm.count("zvalues") ||
+            !vm.count("cubelist")
        ){
         std::cout << "Usage: stm [options]\n";
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
-        std::cout << "April 23rd 2012\n";
+        std::cout << "September 26th 2012\n";
     } else {
         return true;
     }

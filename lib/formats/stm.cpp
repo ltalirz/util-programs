@@ -184,10 +184,31 @@ void StsCube::addLevel(const std::vector<types::Real> &plane,
 
 }
 
-void StmCube::setIsoLevel(types::Real isoValue){
+void StmCube::setIsoValue(types::Real isoValue){
+    this->setValue = isoValue;
+    this->mode = CONSTANT_CURRENT;
     this->stm.clear();
     getZIsoSurface(isoValue, this->stm);
-    this->isoLevel = isoValue;
+}
+
+void StmCube::setZValue(types::Real zValue){
+    this->setValue = zValue;
+    this->mode = CONSTANT_HEIGHT;
+    this->stm.clear();
+
+    // Find largest z coordinate of atoms
+    std::vector<types::Real> tempvector;
+    tempvector.push_back(0);
+    tempvector.push_back(0);
+    tempvector.push_back(this->topZCoordinate() + zValue);
+    std::vector<types::Uint> indices;
+    this->grid.getNearestIndices(tempvector, indices);
+    Uint zIndex = indices[2];
+    std::cout << "STM will be performed at z-index " 
+        << zIndex << "\n";
+    this->getZPlane(zIndex, this->stm);
+    std::cout << "STM will be performed at z-index " 
+        << zIndex << "\n";
 }
 
 bool StmCube::writeIgorFile(String fileName) const {

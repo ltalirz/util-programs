@@ -35,6 +35,7 @@
   - Add option for setting print-level
   - Find a good way to determine a nice hartree potential isosurface for extrapolation.
 
+- cubeplane: Move from entering the index to entering the coordinate
 
 ##########
 #  DONE  #

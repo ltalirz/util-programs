@@ -156,11 +156,12 @@ bool parse(int ac, char* av[], po::variables_map& vm) {
     if (	vm.count("help") ||
             !vm.count("levels") ||
             !vm.count("hartree") ||
+            !vm.count("wfncubes") ||
             !vm.count("width")	) {
         std::cout << "Usage: extrapolate [options]\n";
         std::cout << desc << "\n";
     } else if (vm.count("version")) {
-        std::cout << "July 31st 2012\n";
+        std::cout << "August 29th 2012\n";
     } else if ( vm.count("mode")  && 
                 vm["mode"].as< types::String >() != "constant-z" && 
                 vm["mode"].as< types::String >() != "isosurface") {
