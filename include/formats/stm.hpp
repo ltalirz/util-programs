@@ -102,7 +102,7 @@ class StsCube : public formats::Cube {
     
 class WfnExtrapolation {
 public:
-    enum Mode { constantZ = 0, isoSurface = 1 };
+    enum Mode { plane = 0, isoSurface = 1, rollingBall = 2 };
     void onPlane(WfnCube& wfn);
     void onSurface(WfnCube& wfn, types::Uint nKX, types::Uint nKY);
     void execute();
@@ -136,6 +136,7 @@ private:
     std::vector<types::Real> surface;
     std::vector<types::Uint> zIndices;
     types::Real         surfacePotential;
+    types::Real        ballRadius;
 
 
 

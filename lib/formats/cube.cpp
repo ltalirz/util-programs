@@ -448,6 +448,7 @@ void CubeGrid::zPlane(Uint zIndex, std::vector<types::Real> &plane) {
 void CubeGrid::zSurface(std::vector<Uint> zIndices, std::vector<Real> &plane) {
    
     std::vector<Uint>::const_iterator it = zIndices.begin(); 
+    plane.clear();
     Uint nX = this->nX(), nY = this->nY(), nZ = this->nZ();
     for(Uint x = 0; x < nX; ++x){
        for(Uint y = 0; y < nY; ++y){
@@ -695,8 +696,20 @@ void CubeGrid::zIsoSurfaceCore(
 }
 
 
+Real Cube::distance(std::vector<Real> coordinates) const {
+    using atomistic::Atom;
+    std::vector<Atom>::const_iterator 
+        at  = atoms.begin(),
+        end = atoms.end();
+    Atom probe = Atom(coordinates);
+    Real dist = 0, tmp;
+    while(at != end){
+        tmp = at->distance(probe);
+        if (tmp > dist) dist = tmp;
+    }
 
-
+    return dist;
+}
 
 }
 

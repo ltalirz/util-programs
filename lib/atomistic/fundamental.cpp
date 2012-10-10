@@ -93,6 +93,21 @@ void EnergyLevels::setFermiZero() {
     this->shift(-fermi);
 }
 
+Real Atom::distance(const  Atom& a) const {
+    std::vector<Real>::const_iterator 
+        it  = this->coordinates.begin(),
+        end = this->coordinates.end(),
+        ait = a.coordinates.begin();
+    Real sum = 0;
+    while(it != end){
+        sum += (*it - *ait) * (*it - *ait);
+        ++it; ++ait;
+    }
+    return sqrt(sum);
+}
+
+
+
 
 //LDOS::LDOS(
 //        const std::vector< std::vector<Real> > &levels,

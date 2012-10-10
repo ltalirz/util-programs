@@ -83,6 +83,7 @@ struct Atom {
     types::String getSymbol() const {
         return symbol;
     }
+    types::Real distance(const Atom& a) const;
 
     friend class Cube;
 };

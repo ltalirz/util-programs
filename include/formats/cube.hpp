@@ -115,6 +115,8 @@ struct Cube {
     types::String getFileName() const { return this->fileName; }
 
 
+    types::Real distance(std::vector<types::Real> coordinates) const;
+
     types::Uint nX() const  { return grid.nX(); }
     types::Uint nY() const  { return grid.nY(); }
     types::Uint nZ() const  { return grid.nZ(); }

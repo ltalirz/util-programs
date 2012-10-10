@@ -274,8 +274,9 @@ WfnExtrapolation::WfnExtrapolation(
     this->spectrum = spectrum;
     this->hartree = hartree;
     this->mode    = mode;
-    if ( mode == constantZ ) this->zStart   = var1;
-    else                     this->isoValue = var1;
+    if      ( mode == plane )       this->zStart     = var1;
+    else if ( mode == rollingBall ) this->ballRadius = var1;
+    else if ( mode == isoSurface )  this->isoValue   = var1;
     this->zWidth  = zWidth;
     this->approachFrom = approachFrom;
     this->kPlaneMax = kPlaneMax;
@@ -340,7 +341,8 @@ void WfnExtrapolation::execute(){
         zProfile += ".zprofile";
         std::cout << "Writing Z profile to " << zProfile << std::endl;
         tmp.writeZProfile(zProfile, "Z profile of sqared wave function\n");
-            
+           
+
         // Get values on extrapolation surface
         wfn->grid.zSurface(this->zIndices, this->surface);
         types::String s = formats::gnuplot::writeMatrix<Real>(this->surface, nX, nY);
@@ -348,7 +350,7 @@ void WfnExtrapolation::execute(){
         io::writeStream(sFile, s);
 
         std::cout << "Starting extrapolation ... " << std::endl;
-        if ( mode == constantZ ) 
+        if ( mode == plane ) 
             this->onPlane(*wfn);
         
         else if ( mode == isoSurface )
@@ -380,7 +382,8 @@ void WfnExtrapolation::determineRange(){
 
     Cube tmp(hartree);
 
-    if( mode == constantZ ) {
+    // Some preparations...
+    if( mode == plane || mode == rollingBall) {
         // Find highest z-coordinate
         // Note: The slowest index in cube file format is x, so in terms of storage
         //       modifying the number of x-coordinates would be the easiest.
@@ -404,11 +407,17 @@ void WfnExtrapolation::determineRange(){
         hartree.grid.getNearestIndices(tempvector, indices);
         this->zStartIndex = indices[2];
         this->zSurfEndIndex = indices[2];
-        std::cout << "Fourier transform will be performed at z-index " 
-            << zStartIndex << "\n";
+        
         tempvector[2] += zWidth;
         hartree.grid.getNearestIndices(tempvector, indices);
         this->zEndIndex = indices[2];
+    }
+
+
+    // Define the z indices
+    if (mode == plane){
+        std::cout << "Fourier transform will be performed at z-index " 
+            << zStartIndex << "\n";
     
         this->zIndices = std::vector<Uint> (hartree.nX() * hartree.nY(), zStartIndex);
         
@@ -434,6 +443,107 @@ void WfnExtrapolation::determineRange(){
                   << " to " << max(zIndicesBlitz) * dZ << " [a.u.].\n";
         std::cout << "Extrapolation will be extended to "
                   << zEndIndex * dZ << " [a.u.]\n";
+    }
+
+    else if (mode == rollingBall){
+        Uint nX = hartree.nX(), nY = hartree.nY(), nZ = zEndIndex + 1;
+        Real dX = hartree.dX(), dY = hartree.dY(), dZ = hartree.dZ();
+
+        // TODO if (approachFrom > 0) zMax  = approachFrom;
+
+
+        std::vector<bool> boolGrid(nX*nY*nZ, false);
+        std::vector<atomistic::Atom>::const_iterator 
+            it  = hartree.atoms.begin(),
+            end = hartree.atoms.end();
+        int rI = int(ballRadius / dX) + 1;
+        int rJ = int(ballRadius / dY) + 1;
+        
+        Real x,y,z;
+        int iX, iY, iZ;
+        Real r2 = ballRadius * ballRadius;
+
+        // Build the boolean Grid
+        std::vector<types::Uint> indices;
+        std::vector<Real> coords;
+        while(it != end){
+            indices.clear();
+            coords = it->getCoordinates();
+            hartree.grid.getNearestIndices(coords, indices);
+
+            for(int i = -rI; i <= rI; ++i)
+                for(int j = -rJ; j <= rJ; ++j){
+                    x = i * dX;
+                    y = j * dY;
+                    z = r2 - x*x - y*y;
+
+                    if (z > 0){
+                        iX = (indices[0] + i) % nX;
+                        iY = (indices[1] + j) % nY;
+                        iZ = int(indices[2]) + int(sqrt(z) / dZ);
+                        if (iZ > zEndIndex) iZ = zEndIndex;
+
+                        boolGrid[iX*nY*nZ + iY*nZ + iZ] = true;
+                    }
+                }
+
+            ++it;
+        }
+
+               
+
+        // Find the topmost 'true' surface
+        zIndices = std::vector<Uint>(nX*nY);
+        for(int i = 0; i < nX; ++i)
+            for(int j = 0; j < nY; ++j){
+                int k = nZ;
+                while(k > 0){
+                    --k;
+                    if (boolGrid[i*nY*nZ + j*nZ + k] == true){
+                        zIndices[i*nY + j] = k;
+                        break;
+                    }
+                }
+                if (k == 0){
+                    std::cout << "Warning: Ball rolled to bottom of cube file without finding an atom.\n";
+                    zIndices[i*nY + j] = 0;
+                }
+            }
+
+        
+//        Old, much too slow way of doing things
+//        std::vector<Real> tmp;
+//        for(Uint x = 0; x < nX; ++x){
+//            std::cout << "Here\n";
+//            for(Uint y = 0; y < nY; ++y)
+//                for(Uint z = zMax; z > 0; --z){
+//                    tmp.push_back(x*hartree.dX());
+//                    tmp.push_back(y*hartree.dY());
+//                    tmp.push_back(z*hartree.dZ());
+//                    if(hartree.distance(tmp) < ballRadius){
+//                        zIndices[y*nX+x] = z-1;
+//                        break;
+//                    }
+//                }
+//        }
+        
+        Array<types::Uint,2> zIndicesBlitz(
+                &zIndices[0],
+                shape(hartree.nX(), hartree.nY()),
+                neverDeleteData);
+        
+        // Write some info about plane 
+        zStartIndex = min(zIndicesBlitz);
+        zSurfEndIndex = max(zIndicesBlitz);
+        //Real dZ = hartree.dZ();
+        zEndIndex = zSurfEndIndex + Uint(zWidth / dZ);
+
+        std::cout << "Rolling-ball surface ranges over " << (zSurfEndIndex-zStartIndex)*dZ
+                  << " from z = " << zStartIndex * dZ 
+                  << " to " << zSurfEndIndex * dZ << " [a.u.].\n";
+        std::cout << "Extrapolation will be extended to "
+                  << zEndIndex * dZ << " [a.u.]\n";
+
     }
    
     // Write extrapolation z indices 
@@ -475,13 +585,14 @@ void WfnExtrapolation::setSurfacePotential(){
 
 }
 
+
 void WfnExtrapolation::onPlane(WfnCube& wfn){
     using namespace blitz;
     time_t t;
         
     // Need some info on the grid
     // SI units energy: 2 m E/hbar^2 a0 = 2 E/Ha
-    Uint nX = hartree.nX(), nY = hartree.nY(), nZ = zEndIndex + 1;
+    Uint nX = wfn.nX(), nY = wfn.nY(), nZ = wfn.nZ();
     Real dX = hartree.dX(), dY = hartree.dY(), dZ = hartree.dZ();
     Real dKX = 2 * M_PI * dZ / (dX * Real(nX));
     Real dKY = 2 * M_PI * dZ / (dY * Real(nY));
@@ -511,9 +622,7 @@ void WfnExtrapolation::onPlane(WfnCube& wfn){
             reinterpret_cast<types::Complex *>(out),
             shape(nXF, nYF),
             neverDeleteData);
-    planeFourier /= nX*nY;
-
-    planeFourier *= nX*nY;
+    
     std::vector<Real> fourierReal(nXF*nYF);
     for(int i =0;i<nXF;++i)
         for(int j =0;j<nYF;++j)
