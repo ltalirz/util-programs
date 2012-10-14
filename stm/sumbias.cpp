@@ -133,9 +133,10 @@ bool readLists(types::String levelFileName,
         ++bIt;
     }
     std::vector< std::vector<Real> > biasDomains;
-    if(! posList.empty() ) biasDomains.push_back(posList);
-    if(! negList.empty() ) biasDomains.push_back(negList);
+    if(! posList.empty() ) { biasDomains.push_back(posList);}
+    if(! negList.empty() ) { biasDomains.push_back(negList);}
     std::cout << "Read list of bias voltages from " << biasListFileName << "\n";
+
 
     // Process positive and negative list separately
     std::vector< std::vector<Real> >::iterator listIt = biasDomains.begin(), listEnd = biasDomains.end();

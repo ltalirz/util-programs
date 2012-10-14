@@ -299,7 +299,7 @@ void WfnExtrapolation::execute(){
     std::cout << "Original wave vector grid: kx,ky = " 
         << nX << "," << nY << "\n";
     int nKX = nX, nKY = nY, nK = nKX * nKY;
-    if (mode == isoSurface){ 
+    if (mode == isoSurface || mode == rollingBall){ 
         // May choose to reduce Fourier components
         // limiting oscillation frequency/a.u. to kMax
         Real dKX = 2 * M_PI / (dX * Real(nX));
@@ -353,7 +353,7 @@ void WfnExtrapolation::execute(){
         if ( mode == plane ) 
             this->onPlane(*wfn);
         
-        else if ( mode == isoSurface )
+        else if ( mode == isoSurface || mode == rollingBall )  
             this->onSurface(*wfn, nKX, nKY);
             
         std::cout << "Time to extrapolate : " << (clock() -t)/1000.0 << " ms\n";
