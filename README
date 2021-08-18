@@ -9,11 +9,44 @@
 
 ===============================================================================
 
-Description
+Description & History
+
+  These utilities were used mainly for the manipulation of Gaussian cube files
+  for the simulation of scanning tunneling microscopy and spectroscopy with
+  with CP2K and Quantum ESPRESSO.
+  
+  While the cube file parser implemented here using boost::spirit was faster 
+  than the more generic one used by the atomistic simulation environment (ASE), 
+  minor optimizations brought the python-based parser close enough in performance
+  that in 2013 I decided to rewrite (most of) these tools in Python [1].
+  This allowed reusing much of the functionality of the ASE Atoms class, and the
+  substantial productivity gain from programming in Python outweighed the minor
+  drawbacks in performance, so I never looked back.
+
+  [1] asetk, https://zenodo.org/badge/latestdoi/15176282
 
 
-Features
+Utility programs
 
+  Scanning tunneling microscopy:
+  - stm: create scanning tunneling spectroscopy simulations in constant-height
+         and constant-current mode  
+  - sts: create scanning tunneling spectroscopy simulations
+  - extrapolate/extrapolate2: extrapolate single-particle wave functions for 
+    accurate STM simulations far away from the atoms
+
+  Utilities for Gaussian cube files:
+  - cubestride: subsample a cube file
+  - cubescale: multiply values in cube file with a scalar
+  - cubesquare: compute |v|^2 for each value v of the cube file
+  - cuberoot: compute square root of each value on the cube file
+  - cubeabs: compute absolute value for each value in the cube file
+  - cubediravg: average cube file perpendicular to given direction (x, y or z)
+  - cubezprofile: compute z profile (same as cubediravg along z)
+  - cubeplane: extract specific plane from cube file
+  - cubeprod: multiply two cube files element-wise
+  - espressowfn: read cube file with wave function stored as |psi|^2 * sign(psi)
+      (as written out by Quantum ESPRESSO). Write cube file containing psi.
 
 Design principles - File formats
 
@@ -51,4 +84,7 @@ Required libraries
     - Eigen 3
     - gsl
 
+Author
+
+  Leopold Talirz, nanotech@surfaces laboratory, Empa, Switzerland
 */
